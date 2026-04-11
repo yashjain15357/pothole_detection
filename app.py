@@ -86,9 +86,9 @@ def process_image(image_path):
                     'y2': int(y2)
                 })
 
-        # Save report
-        report_dir = Path("IN_image")
-        report_dir.mkdir(exist_ok=True)
+        # Save report - use /tmp for Render compatibility
+        report_dir = Path("/tmp/IN_image")
+        report_dir.mkdir(exist_ok=True, parents=True)
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
@@ -140,10 +140,8 @@ def process_image(image_path):
                 # Put text
                 cv2.putText(img, label, (x1 + 2, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
-        # Save annotated image
-        output_dir = Path("IN_image")
-        output_dir.mkdir(exist_ok=True)
-        output_path = output_dir / f"annotated_{timestamp}.jpg"
+        # Save annotated image to /tmp
+        output_path = report_dir / f"annotated_{timestamp}.jpg"
         cv2.imwrite(str(output_path), img)
 
         # Convert to base64 for display
@@ -322,9 +320,9 @@ def process_video(video_path):
             'unique_potholes': len(unique_pothole_ids)
         }
         
-        # Save report
-        report_dir = Path("IN_vedio")
-        report_dir.mkdir(exist_ok=True)
+        # Save report - use /tmp for Render compatibility
+        report_dir = Path("/tmp/IN_vedio")
+        report_dir.mkdir(exist_ok=True, parents=True)
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
