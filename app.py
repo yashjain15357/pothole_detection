@@ -1,4 +1,8 @@
 # Flask Application for Pothole Detection System
+import os
+# Set YOLO config directory before importing YOLO
+os.environ['YOLO_CONFIG_DIR'] = '/tmp/Ultralytics'
+
 from flask import Flask, render_template, request, jsonify, send_file
 from pathlib import Path
 import cv2
@@ -8,7 +12,7 @@ from ultralytics import YOLO
 import json
 import base64
 from io import BytesIO
-import os
+
 import re
 
 # Import database functions
