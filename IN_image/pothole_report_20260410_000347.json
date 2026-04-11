@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-10 00:03:47",
+  "filename": "43_jpg.rf.2ad0f02f252cf714af7bad56a410eb9c.jpg",
+  "pothole_count": 1,
+  "detections": [
+    {
+      "pothole_id": 1,
+      "confidence": "87.50%",
+      "width_px": "119",
+      "height_px": "106",
+      "x1": 272,
+      "y1": 440,
+      "x2": 391,
+      "y2": 545
+    }
+  ]
+}

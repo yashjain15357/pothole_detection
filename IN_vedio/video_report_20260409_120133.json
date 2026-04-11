@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-04-09 12:01:33",
+  "filename": "fade-from-valorant.1920x1080.mp4",
+  "total_frames": 480,
+  "fps": 24,
+  "frames_with_detections": 9,
+  "total_potholes_detected": 9,
+  "unique_potholes": 5,
+  "frame_detections": [
+    {
+      "frame_number": 143,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 1,
+          "confidence": "38.49%",
+          "x1": 1498,
+          "y1": 562,
+          "x2": 1824,
+          "y2": 847
+        }
+      ]
+    },
+    {
+      "frame_number": 144,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 1,
+          "confidence": "43.36%",
+          "x1": 1503,
+          "y1": 569,
+          "x2": 1776,
+          "y2": 838
+        }
+      ]
+    },
+    {
+      "frame_number": 145,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 1,
+          "confidence": "43.61%",
+          "x1": 1501,
+          "y1": 558,
+          "x2": 1789,
+          "y2": 835
+        }
+      ]
+    },
+    {
+      "frame_number": 146,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 1,
+          "confidence": "37.48%",
+          "x1": 1502,
+          "y1": 569,
+          "x2": 1788,
+          "y2": 838
+        }
+      ]
+    },
+    {
+      "frame_number": 215,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 2,
+          "confidence": "25.19%",
+          "x1": 1529,
+          "y1": 557,
+          "x2": 1784,
+          "y2": 829
+        }
+      ]
+    },
+    {
+      "frame_number": 383,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 3,
+          "confidence": "28.91%",
+          "x1": 1498,
+          "y1": 556,
+          "x2": 1823,
+          "y2": 847
+        }
+      ]
+    },
+    {
+      "frame_number": 385,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 4,
+          "confidence": "43.67%",
+          "x1": 1501,
+          "y1": 562,
+          "x2": 1802,
+          "y2": 839
+        }
+      ]
+    },
+    {
+      "frame_number": 386,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 1,
+          "confidence": "43.17%",
+          "x1": 1504,
+          "y1": 572,
+          "x2": 1794,
+          "y2": 841
+        }
+      ]
+    },
+    {
+      "frame_number": 389,
+      "pothole_count": 1,
+      "detections": [
+        {
+          "pothole_id": 5,
+          "confidence": "25.96%",
+          "x1": 1497,
+          "y1": 579,
+          "x2": 1799,
+          "y2": 842
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-04-10 00:01:46",
+  "filename": "19_jpg.rf.9ce8541d8790f606e40a938566fcef51.jpg",
+  "latitude": 23.52366070995131,
+  "longitude": 77.82291374225746,
+  "pothole_count": 8,
+  "detections": [
+    {
+      "confidence": "85.80%",
+      "height_px": "167",
+      "pothole_id": 1,
+      "width_px": "226",
+      "x1": 204,
+      "x2": 430,
+      "y1": 285,
+      "y2": 452
+    },
+    {
+      "confidence": "75.10%",
+      "height_px": "33",
+      "pothole_id": 2,
+      "width_px": "69",
+      "x1": 435,
+      "x2": 504,
+      "y1": 99,
+      "y2": 132
+    },
+    {
+      "confidence": "64.19%",
+      "height_px": "61",
+      "pothole_id": 3,
+      "width_px": "86",
+      "x1": 397,
+      "x2": 483,
+      "y1": 202,
+      "y2": 263
+    },
+    {
+      "confidence": "63.95%",
+      "height_px": "30",
+      "pothole_id": 4,
+      "width_px": "52",
+      "x1": 411,
+      "x2": 464,
+      "y1": 120,
+      "y2": 150
+    },
+    {
+      "confidence": "62.88%",
+      "height_px": "32",
+      "pothole_id": 5,
+      "width_px": "47",
+      "x1": 276,
+      "x2": 322,
+      "y1": 212,
+      "y2": 244
+    },
+    {
+      "confidence": "61.29%",
+      "height_px": "16",
+      "pothole_id": 6,
+      "width_px": "24",
+      "x1": 533,
+      "x2": 557,
+      "y1": 34,
+      "y2": 50
+    },
+    {
+      "confidence": "37.33%",
+      "height_px": "21",
+      "pothole_id": 7,
+      "width_px": "45",
+      "x1": 362,
+      "x2": 407,
+      "y1": 88,
+      "y2": 109
+    },
+    {
+      "confidence": "24.14%",
+      "height_px": "12",
+      "pothole_id": 8,
+      "width_px": "28",
+      "x1": 503,
+      "x2": 531,
+      "y1": 48,
+      "y2": 60
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-04-10 00:16:20",
+  "filename": "videoplayback (1).mp4",
+  "total_frames": 302,
+  "fps": 23,
+  "frames_with_detections": 104,
+  "total_potholes_detected": 211,
+  "unique_potholes": 66,
+  "location": {
+    "latitude": 23.52440833652351,
+    "longitude": 77.805399634468
+  }
+}

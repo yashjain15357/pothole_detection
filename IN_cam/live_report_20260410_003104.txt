@@ -1,0 +1,31 @@
+LIVE CAMERA DETECTION - SHORT REPORT
+==================================================
+
+Timestamp: 10/4/2026, 12:31:04 am
+Runtime: 34 seconds
+
+DETECTION SUMMARY
+--------------------------------------------------
+Total Potholes Detected: 3
+Unique Potholes: 3
+
+==================================================
+DETECTED POTHOLE LOCATIONS
+==================================================
+
+Pothole 1:
+  Latitude:  23.514157
+  Longitude: 77.818209
+  Time:      12:30:36 am
+
+Pothole 2:
+  Latitude:  23.514157
+  Longitude: 77.818209
+  Time:      12:30:46 am
+
+Pothole 3:
+  Latitude:  23.514157
+  Longitude: 77.818209
+  Time:      12:30:48 am
+
+==================================================

@@ -1,0 +1,16 @@
+============================================================
+POTHOLE DETECTION REPORT
+============================================================
+Timestamp: 2026-04-08 00:31:19
+Image: 9_jpg.rf.9ff479ac774c2f4fcd76a479819593a3.jpg
+Total Potholes Detected: 6
+============================================================
+
+Detection Details:
+------------------------------------------------------------
+Pothole 1: Confidence = 84.90%, Width = 295px, Height = 136px
+Pothole 2: Confidence = 83.82%, Width = 441px, Height = 88px
+Pothole 3: Confidence = 70.04%, Width = 176px, Height = 56px
+Pothole 4: Confidence = 57.91%, Width = 297px, Height = 193px
+Pothole 5: Confidence = 49.18%, Width = 151px, Height = 59px
+Pothole 6: Confidence = 40.49%, Width = 123px, Height = 42px

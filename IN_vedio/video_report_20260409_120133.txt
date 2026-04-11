@@ -1,0 +1,11 @@
+============================================================
+VIDEO POTHOLE DETECTION REPORT
+============================================================
+Timestamp: 2026-04-09 12:01:33
+Video: fade-from-valorant.1920x1080.mp4
+Total Frames: 480
+FPS: 24
+Frames with Detections: 9
+Total Potholes Detected: 9
+Unique Potholes: 5
+============================================================

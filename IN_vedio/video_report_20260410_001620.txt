@@ -1,0 +1,24 @@
+VIDEO POTHOLE DETECTION - SHORT REPORT
+==================================================
+
+Timestamp: 2026-04-10 00:16:20
+Video File: videoplayback (1).mp4
+Video FPS: 23
+Total Frames: 302
+Latitude: 23.524408
+Longitude: 77.805400
+Latitude: 23.524408
+Longitude: 77.805400
+Latitude: 23.524408
+Longitude: 77.805400
+Latitude: 23.524408
+Longitude: 77.805400
+Latitude: 23.524408
+Longitude: 77.805400
+
+DETECTION SUMMARY
+--------------------------------------------------
+Frames with Detections: 104
+Total Potholes Detected: 211
+Unique Potholes: 66
+==================================================

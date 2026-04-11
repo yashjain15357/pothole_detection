@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pothole Detection System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛣️ Pothole Detection System</h1>
+            <p>AI-Powered Pothole Detection using YOLO</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="nav-btn active" data-tab="image">Image Detection</button>
+            <button class="nav-btn" data-tab="video">Video Detection</button>
+            <button class="nav-btn" data-tab="camera">Live Camera</button>
+            <button class="nav-btn" data-tab="reports">Reports</button>
+        </nav>
+
+        <!-- Image Detection Tab -->
+        <section id="image-tab" class="tab-content active">
+            <div class="card">
+                <h2>Upload Image for Detection</h2>
+                <p>Select an image from your device to detect potholes</p>
+                <div class="button-group">
+                    <input type="file" id="image-input" accept=".jpg,.jpeg,.png,.bmp,.gif,.tiff" hidden>
+                    <button class="btn btn-primary" id="load-image-btn">📁 Load Image from Device</button>
+                    <button class="btn btn-primary" id="capture-image-btn">📷 Capture from Camera</button>
+                </div>
+            </div>
+
+            <!-- Camera Capture Modal for Image Tab -->
+            <div id="image-camera-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Capture Image from Camera</h2>
+                        <span class="close" id="close-image-camera">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="camera-capture-container">
+                            <video id="image-capture-video" autoplay playsinline></video>
+                            <canvas id="image-capture-canvas" style="display: none;"></canvas>
+                            <div class="camera-controls">
+                                <button class="btn btn-primary" id="image-capture-btn">📸 Capture Photo</button>
+                                <button class="btn btn-secondary" id="cancel-capture-btn">Cancel</button>
+                            </div>
+                            <div id="image-capture-preview" class="capture-preview hidden">
+                                <img id="image-capture-result" src="" alt="Captured Image">
+                                <div id="camera-capture-location-info" class="capture-location-info hidden">
+                                    <p><strong>📍 Captured Location:</strong></p>
+                                    <p>Latitude: <span id="camera-capture-lat">-</span></p>
+                                    <p>Longitude: <span id="camera-capture-lng">-</span></p>
+                                </div>
+                                <button class="btn btn-success" id="confirm-capture-btn">✓ Use This Photo</button>
+                                <button class="btn btn-secondary" id="retake-btn">Retake Photo</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="image-loading" class="loading-spinner hidden">
+                <div class="spinner"></div>
+                <p>Processing image...</p>
+            </div>
+
+            <!-- Location Selection for Device Uploaded Image -->
+            <div id="location-selection-container" class="card hidden">
+                <h3>📍 Select Location on Map</h3>
+                <p>Click on the map to mark the location where this pothole was found</p>
+                <div id="image-location-map" class="map-container"></div>
+                <div id="location-info" class="location-info hidden">
+                    <p><strong>Selected Location:</strong></p>
+                    <p>Latitude: <span id="selected-lat">-</span></p>
+                    <p>Longitude: <span id="selected-lng">-</span></p>
+                </div>
+                <div class="location-controls">
+                    <button class="btn btn-success" id="confirm-location-btn" disabled>✓ Confirm Location & Detect</button>
+                    <button class="btn btn-secondary" id="cancel-location-btn">Cancel</button>
+                </div>
+            </div>
+
+            <div id="image-results" class="results-container hidden">
+                <div class="card">
+                    <h3>Detection Results</h3>
+                    <div id="image-preview" class="image-preview">
+                        <img id="detected-image" src="" alt="Detected Image">
+                    </div>
+                    <div id="image-report" class="report-text"></div>
+                </div>
+            </div>
+
+            <div id="image-error" class="error-message hidden"></div>
+        </section>
+
+        <!-- Video Detection Tab -->
+        <section id="video-tab" class="tab-content">
+            <div class="card">
+                <h2>Upload Video for Detection</h2>
+                <p>Select a video from your device to detect potholes</p>
+                <input type="file" id="video-input" accept=".mp4,.avi,.mov,.mkv,.flv,.wmv" hidden>
+                <button class="btn btn-primary" id="load-video-btn">📁 Load Video from Device</button>
+            </div>
+
+            <!-- Location Selection for Device Uploaded Video -->
+            <div id="video-location-selection-container" class="card hidden">
+                <h3>📍 Select Location on Map</h3>
+                <p>Click on the map to mark the location where this video was recorded</p>
+                <div id="video-location-map" class="map-container"></div>
+                <div id="video-location-info" class="location-info hidden">
+                    <p><strong>Selected Location:</strong></p>
+                    <p>Latitude: <span id="video-selected-lat">-</span></p>
+                    <p>Longitude: <span id="video-selected-lng">-</span></p>
+                </div>
+                <div class="location-controls">
+                    <button class="btn btn-success" id="video-confirm-location-btn" disabled>✓ Confirm Location & Detect</button>
+                    <button class="btn btn-secondary" id="video-cancel-location-btn">Cancel</button>
+                </div>
+            </div>
+
+            <div id="video-loading" class="loading-spinner hidden">
+                <div class="spinner"></div>
+                <p>Processing video... This may take a while</p>
+            </div>
+
+            <div id="video-results" class="results-container hidden">
+                <div class="card">
+                    <h3>Video Analysis Results</h3>
+                    <div id="video-report" class="report-text"></div>
+                </div>
+            </div>
+
+            <div id="video-error" class="error-message hidden"></div>
+        </section>
+
+        <!-- Live Camera Tab -->
+        <section id="camera-tab" class="tab-content">
+            <div class="card">
+                <h2>Live Camera Detection</h2>
+                <p>Real-time pothole detection from your webcam</p>
+                <div class="camera-controls">
+                    <button class="btn btn-primary" id="start-camera-btn">🎥 Start Camera</button>
+                    <button class="btn btn-secondary hidden" id="stop-camera-btn">⏹️ Stop Camera</button>
+                </div>
+            </div>
+
+            <div id="camera-container" class="card hidden">
+                <h3>Camera Feed with Detection</h3>
+                <div class="camera-feed-wrapper">
+                    <video id="camera-video" autoplay playsinline style="display: none;"></video>
+                    <canvas id="camera-canvas" style="width: 100%; border: 2px solid #667eea; border-radius: 8px;"></canvas>
+                </div>
+                <div id="camera-stats" class="camera-stats">
+                    <div class="stat-item">
+                        <span>🔍 Detections:</span>
+                        <span id="detection-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>⏱️ Runtime:</span>
+                        <span id="runtime">0s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>📊 Unique IDs:</span>
+                        <span id="unique-ids">0</span>
+                    </div>
+                </div>
+                
+                <!-- Pothole Locations Map -->
+                <h3 style="margin-top: 30px;">📍 Detected Pothole Locations</h3>
+                <div id="camera-location-map" class="map-container"></div>
+                <div id="camera-detected-locations" class="camera-detected-locations">
+                    <h4>Detected Potholes:</h4>
+                    <div id="camera-locations-list" class="locations-list"></div>
+                </div>
+            </div>
+
+            <div id="camera-loading" class="loading-spinner hidden">
+                <div class="spinner"></div>
+                <p>Initializing camera...</p>
+            </div>
+
+            <div id="camera-error" class="error-message hidden"></div>
+        </section>
+
+        <!-- Reports Tab -->
+        <section id="reports-tab" class="tab-content">
+            <div class="card">
+                <h2>Detection Reports</h2>
+            </div>
+
+            <div id="reports-loading" class="loading-spinner hidden">
+                <div class="spinner"></div>
+                <p>Loading reports...</p>
+            </div>
+
+            <div id="reports-container" class="reports-grid">
+                <!-- Image Reports -->
+                <div class="report-section">
+                    <h3>📷 Image Reports</h3>
+                    <div id="image-reports-list" class="reports-list"></div>
+                </div>
+
+                <!-- Video Reports -->
+                <div class="report-section">
+                    <h3>🎥 Video Reports</h3>
+                    <div id="video-reports-list" class="reports-list"></div>
+                </div>
+
+                <!-- Camera Reports -->
+                <div class="report-section">
+                    <h3>📹 Camera Reports</h3>
+                    <div id="camera-reports-list" class="reports-list"></div>
+                </div>
+            </div>
+
+            <div id="reports-error" class="error-message hidden"></div>
+        </section>
+
+        <footer>
+            <p>Pothole Detection System v1.0 | Powered by YOLO</p>
+        </footer>
+    </div>
+
+    <!-- Modal for report details -->
+    <div id="report-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Report Details</h2>
+            <div id="modal-report-content" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS for Map -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
