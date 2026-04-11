@@ -1,9 +1,0 @@
-==================================================
-VIDEO POTHOLE DETECTION REPORT
-==================================================
-Timestamp: 2026-04-07 19:02:21
-Total Frames Processed: 344
-Unique Potholes in Video: 43
-Frames with Potholes: 89
-Potholes detected in video.
-==================================================

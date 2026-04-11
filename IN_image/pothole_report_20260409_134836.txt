@@ -1,9 +1,0 @@
-============================================================
-POTHOLE DETECTION REPORT
-============================================================
-Timestamp: 2026-04-09 13:48:36
-Image: Gemini_Generated_Image_h2b0yqh2b0yqh2b0.png
-Potholes Detected: 0
-============================================================
-
-No potholes detected
