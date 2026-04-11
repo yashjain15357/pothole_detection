@@ -383,8 +383,8 @@ def upload_image():
     
     try:
         # Save to temp location
-        temp_dir = Path('temp_uploads')
-        temp_dir.mkdir(exist_ok=True)
+        temp_dir = Path('/tmp/pothole_uploads')  # Use /tmp for Render compatibility
+        temp_dir.mkdir(exist_ok=True, parents=True)
         filepath = temp_dir / file.filename
         file.save(str(filepath))
         
@@ -429,8 +429,8 @@ def upload_video():
     
     try:
         # Save to temp location
-        temp_dir = Path('temp_uploads')
-        temp_dir.mkdir(exist_ok=True)
+        temp_dir = Path('/tmp/pothole_uploads')  # Use /tmp for Render compatibility
+        temp_dir.mkdir(exist_ok=True, parents=True)
         filepath = temp_dir / file.filename
         file.save(str(filepath))
         
