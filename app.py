@@ -1,5 +1,6 @@
 # Flask Application for Pothole Detection System
 import os
+import gc
 # Set YOLO config directory before importing YOLO
 os.environ['YOLO_CONFIG_DIR'] = '/tmp/Ultralytics'
 
@@ -33,15 +34,17 @@ camera_session = {
 SUPPORTED_IMAGES = ('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff')
 SUPPORTED_VIDEOS = ('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')
 
-# Load YOLO model
+# Load YOLO model with device optimization
 try:
     model_path = Path("best.pt")
     if not model_path.exists():
         print(f"⚠️ Model not found at {model_path.resolve()}")
         model = None
     else:
+        # Load model on CPU to save GPU memory (or GPU if available)
         model = YOLO(str(model_path))
-        print(f"✓ Model loaded from {model_path}")
+        model.to('cpu')  # Force CPU mode for memory efficiency
+        print(f"✓ Model loaded from {model_path} (CPU mode)")
 except Exception as e:
     print(f"Error loading model: {e}")
     model = None
@@ -151,6 +154,10 @@ def process_image(image_path):
         # Save report to database
         save_report_to_db('image', file_name, report_data, str(report_file_txt))
 
+        # Clean up memory
+        del img
+        gc.collect()
+
         return {
             'success': True,
             'report': report_data,
@@ -159,6 +166,7 @@ def process_image(image_path):
         }, None
 
     except Exception as e:
+        gc.collect()  # Clean up on error too
         return None, str(e)
 
 
@@ -349,6 +357,11 @@ def process_video(video_path):
         
         # Save report to database
         save_report_to_db('video', file_name, short_report_data, str(report_file_txt))
+        
+        # Clean up memory
+        cap.release()
+        del frame, cap
+        gc.collect()
         
         return {
             'success': True,
