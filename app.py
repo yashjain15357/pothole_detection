@@ -1,8 +1,15 @@
 # Flask Application for Pothole Detection System
 import os
 import gc
+import sys
+
 # Set YOLO config directory before importing YOLO
 os.environ['YOLO_CONFIG_DIR'] = '/tmp/Ultralytics'
+os.environ['YOLO_CACHE'] = '/tmp/yolo_cache'
+os.environ['ULTRALYTICS_SKIP_UPDATE'] = 'true'
+
+# Optimization: Set memory optimization flags
+os.environ['PYTHONUNBUFFERED'] = '1'
 
 from flask import Flask, render_template, request, jsonify, send_file
 from pathlib import Path
@@ -13,13 +20,18 @@ from ultralytics import YOLO
 import json
 import base64
 from io import BytesIO
-
 import re
+import threading
+import torch
 
 # Import database functions
 from database import init_database, save_report_to_db, get_reports_from_db, get_database_stats, get_report_by_id
 
+# Configure garbage collection for better memory usage
+gc.set_threshold(500, 5, 5)
+
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 
 # Global camera session tracker - tracks potholes across frames
 camera_session = {
@@ -41,25 +53,39 @@ try:
         print(f"⚠️ Model not found at {model_path.resolve()}")
         model = None
     else:
-        # Load model on CPU to save GPU memory (or GPU if available)
+        # Load model with optimizations
         model = YOLO(str(model_path))
-        model.to('cpu')  # Force CPU mode for memory efficiency
-        print(f"✓ Model loaded from {model_path} (CPU mode)")
+        model.to('cpu')  # Force CPU mode
+        
+        # Enable optimization flags for memory efficiency
+        # Use half precision (FP16) to reduce memory usage
+        model.half = False  # Disable half precision to maintain accuracy
+        
+        # Set model to eval mode to reduce memory
+        model.model.eval()
+        
+        print(f"✓ Model loaded from {model_path} (CPU mode, optimized)")
 except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
 
 def process_image(image_path):
-    """Process image and detect potholes"""
+    """Process image and detect potholes (optimized)"""
     if model is None:
         return None, "Model not loaded"
     
     try:
         file_name = Path(image_path).name
         
-        # Prediction
-        results = model.predict(source=image_path, conf=0.2, imgsz=640)
+        # Prediction with optimized parameters
+        results = model.predict(
+            source=image_path, 
+            conf=0.2, 
+            imgsz=416,  # Reduced from 640 for faster inference
+            verbose=False,
+            device=0 if torch.cuda.is_available() else 'cpu'
+        )
         result = results[0]
         pothole_count = len(result.boxes) if result.boxes is not None else 0
 
@@ -132,7 +158,7 @@ def process_image(image_path):
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 conf = box.conf.item()
                 
-                # Draw rectangle with bright cyan color (easier to see)
+                # Draw rectangle with bright cyan color
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 255), 3)
                 
                 # Draw filled background for text
@@ -145,17 +171,17 @@ def process_image(image_path):
 
         # Save annotated image to /tmp
         output_path = report_dir / f"annotated_{timestamp}.jpg"
-        cv2.imwrite(str(output_path), img)
+        cv2.imwrite(str(output_path), img, [cv2.IMWRITE_JPEG_QUALITY, 85])  # Reduced quality for smaller file
 
         # Convert to base64 for display
-        _, buffer = cv2.imencode('.jpg', img)
+        _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
         # Save report to database
         save_report_to_db('image', file_name, report_data, str(report_file_txt))
 
-        # Clean up memory
-        del img
+        # Clean up memory aggressively
+        del img, buffer, result, results
         gc.collect()
 
         return {
@@ -166,7 +192,7 @@ def process_image(image_path):
         }, None
 
     except Exception as e:
-        gc.collect()  # Clean up on error too
+        gc.collect()
         return None, str(e)
 
 
@@ -216,7 +242,7 @@ def update_report_with_location(report_data, latitude, longitude):
 
 
 def process_video(video_path):
-    """Process video and detect potholes in frames"""
+    """Process video and detect potholes in frames (optimized)"""
     if model is None:
         return None, "Model not loaded"
     
@@ -242,6 +268,7 @@ def process_video(video_path):
         distance_threshold = 50
         
         frame_detections = []
+        frame_skip = max(1, fps // 10)  # Process every Nth frame to save memory
         
         while True:
             ret, frame = cap.read()
@@ -249,10 +276,26 @@ def process_video(video_path):
                 break
             
             frame_number += 1
+            
+            # Skip frames for faster processing
+            if frame_number % frame_skip != 0:
+                continue
+            
+            # Reduce frame size for inference (keep aspect ratio)
+            h, w = frame.shape[:2]
+            scale_factor = 0.75  # Process at 75% original size
+            frame_resized = cv2.resize(frame, (int(w * scale_factor), int(h * scale_factor)), interpolation=cv2.INTER_LINEAR)
+            
             current_centroids = {}
             
             try:
-                results = model.predict(source=frame, conf=0.25, imgsz=640)
+                results = model.predict(
+                    source=frame_resized, 
+                    conf=0.25, 
+                    imgsz=384,  # Reduced from 640
+                    verbose=False,
+                    device=0 if torch.cuda.is_available() else 'cpu'
+                )
                 result = results[0]
                 pothole_count = len(result.boxes) if result.boxes is not None else 0
                 
@@ -268,6 +311,8 @@ def process_video(video_path):
                     
                     for i, box in enumerate(result.boxes, 1):
                         x1, y1, x2, y2 = box.xyxy[0]
+                        # Scale back to original size
+                        x1, y1, x2, y2 = x1/scale_factor, y1/scale_factor, x2/scale_factor, y2/scale_factor
                         cx = (x1 + x2) / 2
                         cy = (y1 + y2) / 2
                         current_centroids[i] = (cx, cy)
@@ -302,6 +347,12 @@ def process_video(video_path):
             
             except Exception as e:
                 print(f"Error processing frame {frame_number}: {e}")
+            
+            finally:
+                # Clean up frame memory
+                del frame_resized
+                if frame_number % 100 == 0:
+                    gc.collect()
         
         cap.release()
         
@@ -359,7 +410,6 @@ def process_video(video_path):
         save_report_to_db('video', file_name, short_report_data, str(report_file_txt))
         
         # Clean up memory
-        cap.release()
         del frame, cap
         gc.collect()
         
@@ -635,7 +685,13 @@ def detect_frame():
         
         # Perform detection with timeout and error handling
         try:
-            results = model.predict(source=img, conf=0.25, imgsz=640, verbose=False)
+            results = model.predict(
+                source=img, 
+                conf=0.25, 
+                imgsz=416,  # Reduced size
+                verbose=False,
+                device=0 if torch.cuda.is_available() else 'cpu'
+            )
             if not results or len(results) == 0:
                 return jsonify({'success': False, 'error': 'Model prediction failed'}), 500
             
@@ -688,6 +744,10 @@ def detect_frame():
             
             print(f"✓ Detection complete: {pothole_count} detected, {len(camera_session['unique_pothole_ids'])} unique")
             
+            # Clean up
+            del result, results, img, nparr, img_bytes
+            gc.collect()
+            
             return jsonify({
                 'success': True,
                 'pothole_count': pothole_count,
@@ -699,6 +759,7 @@ def detect_frame():
             print(f"❌ Model inference error: {model_error}")
             import traceback
             traceback.print_exc()
+            gc.collect()
             return jsonify({'success': False, 'error': f'Detection error: {str(model_error)}'}), 500
     
     except Exception as e:
