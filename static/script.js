@@ -981,6 +981,12 @@ async function stopCamera() {
     console.log('✓ Camera stopped completely and report saved');
 }
 
+// Frame counter for skipping frames
+let frameCount = 0;
+const FRAME_SKIP = 2; // Process every 3rd frame (0, skip, skip, 3, skip, skip...)
+const TARGET_FPS = 10; // Process at max 10 FPS
+const FRAME_DELAY = 1000 / TARGET_FPS; // ~100ms per frame
+
 async function processCamera() {
     if (!cameraStream || !isProcessing) {
         console.log('⏹️ Processing stopped (stream/processing check)');
@@ -997,6 +1003,15 @@ async function processCamera() {
             return;
         }
         
+        // Frame skipping - only process every Nth frame
+        frameCount++;
+        if (frameCount % FRAME_SKIP !== 0) {
+            if (cameraStream && isProcessing) {
+                processingIntervalId = setTimeout(processCamera, 50);
+            }
+            return;
+        }
+        
         // Initialize canvas
         const ctx = cameraCanvas.getContext('2d');
         if (!ctx) {
@@ -1004,33 +1019,43 @@ async function processCamera() {
             return;
         }
         
-        // Set canvas size
-        cameraCanvas.width = cameraVideo.videoWidth;
-        cameraCanvas.height = cameraVideo.videoHeight;
+        // Resize canvas to smaller size for faster processing (mobile optimization)
+        const targetWidth = 480;  // Reduce from full resolution to 480px
+        const targetHeight = 640; // Reduce from full resolution
+        const aspectRatio = cameraVideo.videoWidth / cameraVideo.videoHeight;
         
-        // Fill with black first to ensure canvas is not empty
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, cameraCanvas.width, cameraCanvas.height);
+        let drawWidth = targetWidth;
+        let drawHeight = Math.round(targetWidth / aspectRatio);
         
-        // Draw video frame to canvas
+        if (drawHeight > targetHeight) {
+            drawHeight = targetHeight;
+            drawWidth = Math.round(targetHeight * aspectRatio);
+        }
+        
+        // Set canvas size to smaller dimensions
+        cameraCanvas.width = drawWidth;
+        cameraCanvas.height = drawHeight;
+        
+        // Draw video frame to canvas with reduced size
         try {
-            ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+            ctx.drawImage(cameraVideo, 0, 0, drawWidth, drawHeight);
         } catch (drawError) {
             console.error('❌ drawImage failed:', drawError);
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }
         
-        // Convert canvas to base64 JPEG
+        // Convert canvas to base64 JPEG with LOW quality for faster transmission
         let imageData;
         try {
-            imageData = cameraCanvas.toDataURL('image/jpeg', 0.8);
+            // Reduced quality to 0.5 for faster encoding and transmission
+            imageData = cameraCanvas.toDataURL('image/jpeg', 0.5);
         } catch (toDataURLError) {
             console.error('❌ toDataURL failed:', toDataURLError);
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }
@@ -1039,7 +1064,7 @@ async function processCamera() {
         if (!imageData) {
             console.error('❌ toDataURL returned null');
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }
@@ -1056,7 +1081,7 @@ async function processCamera() {
         if (!base64Data || base64Data.length === 0) {
             console.error('❌ Base64 data is empty after extraction');
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }
@@ -1064,7 +1089,7 @@ async function processCamera() {
         if (base64Data.length < 50) {
             console.warn(`⚠️ Base64 data seems too small: ${base64Data.length} characters`);
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }
@@ -1074,6 +1099,8 @@ async function processCamera() {
             console.log('⏹️ Stop signal received before sending request');
             return;
         }
+        
+        console.log(`📤 Sending frame ${frameCount} (size: ${Math.round(base64Data.length / 1024)}KB)`);
         
         // Send frame to server for detection with abort signal
         const response = await fetch('/detect-frame', {
@@ -1097,7 +1124,7 @@ async function processCamera() {
             const errorData = await response.json();
             console.error(`❌ Server error ${response.status}:`, errorData.error);
             if (cameraStream && isProcessing) {
-                processingIntervalId = setTimeout(processCamera, 500);
+                processingIntervalId = setTimeout(processCamera, FRAME_DELAY);
             }
             return;
         }

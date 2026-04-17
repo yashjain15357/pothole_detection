@@ -314,10 +314,11 @@ def detect_frame():
         try:
             results = model.predict(
                 source=img, 
-                conf=0.25, 
-                imgsz=416,  # Reduced size
+                conf=0.3,      # Increased confidence threshold for faster/cleaner detection
+                imgsz=320,     # Further reduced from 416 for camera (smaller = faster)
                 verbose=False,
-                device=0 if torch.cuda.is_available() else 'cpu'
+                device=0 if torch.cuda.is_available() else 'cpu',
+                half=False     # Disable half precision for accuracy
             )
             if not results or len(results) == 0:
                 return jsonify({'success': False, 'error': 'Model prediction failed'}), 500
@@ -371,8 +372,10 @@ def detect_frame():
             
             print(f"✓ Detection complete: {pothole_count} detected, {len(camera_session['unique_pothole_ids'])} unique")
             
-            # Clean up
+            # Clean up memory immediately
             del result, results, img, nparr, img_bytes
+            
+            # Aggressive garbage collection for camera frames (periodic)
             gc.collect()
             
             return jsonify({
