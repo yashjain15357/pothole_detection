@@ -1348,3 +1348,286 @@ function showCameraError(message) {
     cameraError.textContent = message;
     cameraError.classList.remove('hidden');
 }
+// ============ DASHBOARD FUNCTIONALITY ============
+
+let chartsInstance = {};
+
+// Load dashboard data when dashboard tab is opened
+navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.dataset.tab === 'dashboard') {
+            loadDashboard();
+        }
+    });
+});
+
+// Load dashboard on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+});
+
+async function loadDashboard() {
+    try {
+        const dashboardLoading = document.getElementById('dashboard-loading');
+        const dashboardError = document.getElementById('dashboard-error');
+        
+        dashboardLoading.classList.remove('hidden');
+        dashboardError.classList.add('hidden');
+
+        // Fetch analytics data
+        const response = await fetch('/api/dashboard/analytics');
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load dashboard data');
+        }
+
+        // Update summary cards
+        updateSummaryCards(data);
+
+        // Update charts
+        updateCharts(data);
+
+        // Display top reports
+        displayTopReports(data.top_reports);
+
+        dashboardLoading.classList.add('hidden');
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        document.getElementById('dashboard-error').textContent = 'Error loading dashboard: ' + error.message;
+        document.getElementById('dashboard-error').classList.remove('hidden');
+        document.getElementById('dashboard-loading').classList.add('hidden');
+    }
+}
+
+function updateSummaryCards(data) {
+    document.getElementById('summary-total-reports').textContent = data.total_reports;
+    document.getElementById('summary-total-potholes').textContent = data.total_potholes;
+    document.getElementById('summary-image-reports').textContent = data.by_type.image || 0;
+    document.getElementById('summary-video-reports').textContent = data.by_type.video || 0;
+    document.getElementById('summary-camera-reports').textContent = data.by_type.camera || 0;
+}
+
+function updateCharts(data) {
+    // Reports by type - Pie chart
+    const reportsByTypeCtx = document.getElementById('reports-by-type-chart').getContext('2d');
+    if (chartsInstance.reportsByType) chartsInstance.reportsByType.destroy();
+    chartsInstance.reportsByType = new Chart(reportsByTypeCtx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data.by_type).map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+            datasets: [{
+                data: Object.values(data.by_type),
+                backgroundColor: ['#667eea', '#f093fb', '#43e97b'],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    // Potholes by type - Bar chart
+    const potholesByTypeCtx = document.getElementById('potholes-by-type-chart').getContext('2d');
+    if (chartsInstance.potholesByType) chartsInstance.potholesByType.destroy();
+    chartsInstance.potholesByType = new Chart(potholesByTypeCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data.potholes_by_type).map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+            datasets: [{
+                label: 'Total Potholes',
+                data: Object.values(data.potholes_by_type),
+                backgroundColor: ['#667eea', '#f093fb', '#43e97b'],
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+
+    // Daily reports - Line chart
+    const dailyReportsCtx = document.getElementById('daily-reports-chart').getContext('2d');
+    if (chartsInstance.dailyReports) chartsInstance.dailyReports.destroy();
+    
+    const dates = Object.keys(data.daily_reports).sort();
+    const counts = dates.map(d => data.daily_reports[d]);
+    
+    chartsInstance.dailyReports = new Chart(dailyReportsCtx, {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: 'Reports',
+                data: counts,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+
+    // Average potholes - Bar chart
+    const avgPotholesCtx = document.getElementById('avg-potholes-chart').getContext('2d');
+    if (chartsInstance.avgPotholes) chartsInstance.avgPotholes.destroy();
+    chartsInstance.avgPotholes = new Chart(avgPotholesCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data.avg_potholes).map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+            datasets: [{
+                label: 'Average Potholes',
+                data: Object.values(data.avg_potholes),
+                backgroundColor: ['#667eea', '#f093fb', '#43e97b'],
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+function displayTopReports(topReports) {
+    const container = document.getElementById('top-reports-list');
+    
+    if (!topReports || topReports.length === 0) {
+        container.innerHTML = '<p class="empty-results">No reports available</p>';
+        return;
+    }
+
+    let html = '<table><thead><tr><th>Report Type</th><th>Name</th><th>Potholes</th><th>Date</th></tr></thead><tbody>';
+    
+    topReports.forEach(report => {
+        html += `
+            <tr>
+                <td><span class="report-type-badge ${report.type}">${report.type.charAt(0).toUpperCase() + report.type.slice(1)}</span></td>
+                <td>${report.name || 'Report ' + report.id}</td>
+                <td><span class="pothole-count">${report.count}</span></td>
+                <td>${new Date(report.date).toLocaleDateString()}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// Filter functionality
+const applyFiltersBtn = document.getElementById('apply-filters-btn');
+const resetFiltersBtn = document.getElementById('reset-filters-btn');
+const filterType = document.getElementById('filter-type');
+const filterMinPotholes = document.getElementById('filter-min-potholes');
+const filterMaxPotholes = document.getElementById('filter-max-potholes');
+const filterDateFrom = document.getElementById('filter-date-from');
+const filterDateTo = document.getElementById('filter-date-to');
+const filterSortBy = document.getElementById('filter-sort-by');
+
+applyFiltersBtn.addEventListener('click', applyFilters);
+resetFiltersBtn.addEventListener('click', resetFilters);
+
+async function applyFilters() {
+    try {
+        const params = new URLSearchParams();
+        
+        if (filterType.value) params.append('type', filterType.value);
+        if (filterMinPotholes.value) params.append('min_potholes', filterMinPotholes.value);
+        if (filterMaxPotholes.value) params.append('max_potholes', filterMaxPotholes.value);
+        if (filterDateFrom.value) params.append('date_from', filterDateFrom.value);
+        if (filterDateTo.value) params.append('date_to', filterDateTo.value);
+        params.append('sort_by', filterSortBy.value);
+        params.append('limit', 100);
+
+        const response = await fetch(`/api/dashboard/reports-filtered?${params}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch filtered reports');
+        }
+
+        displayFilteredResults(data);
+    } catch (error) {
+        console.error('Filter error:', error);
+        alert('Error applying filters: ' + error.message);
+    }
+}
+
+function displayFilteredResults(data) {
+    const resultsSection = document.getElementById('filtered-results-section');
+    const resultStats = document.getElementById('filtered-count');
+    const resultsTable = document.getElementById('filtered-reports-table');
+
+    resultStats.textContent = data.count;
+
+    if (data.count === 0) {
+        resultsTable.innerHTML = '<div class="empty-results"><div class="empty-results-icon">📭</div><p>No reports match the selected filters</p></div>';
+        resultsSection.style.display = 'block';
+        return;
+    }
+
+    let html = '<table><thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Potholes</th><th>Unique</th><th>Date</th></tr></thead><tbody>';
+    
+    data.reports.forEach(report => {
+        html += `
+            <tr>
+                <td>#${report.id}</td>
+                <td><span class="report-type-badge ${report.type}">${report.type.charAt(0).toUpperCase() + report.type.slice(1)}</span></td>
+                <td>${report.name}</td>
+                <td><span class="pothole-count">${report.pothole_count}</span></td>
+                <td>${report.unique_potholes || '-'}</td>
+                <td>${new Date(report.created_at).toLocaleDateString()}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    resultsTable.innerHTML = html;
+    resultsSection.style.display = 'block';
+
+    // Scroll to results
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetFilters() {
+    filterType.value = '';
+    filterMinPotholes.value = '';
+    filterMaxPotholes.value = '';
+    filterDateFrom.value = '';
+    filterDateTo.value = '';
+    filterSortBy.value = 'created_at';
+    
+    document.getElementById('filtered-results-section').style.display = 'none';
+}

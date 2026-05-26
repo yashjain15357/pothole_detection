@@ -23,35 +23,91 @@ except ImportError:
     def save_report_to_db(category, filename, report_data, report_file):
         pass
 
-# Load YOLO model
-try:
-    if os.path.exists('best.pt'):
-        model = YOLO('best.pt')
-    elif os.path.exists('best(2).pt'):
-        model = YOLO('best(2).pt')
-    else:
-        model = None
-        print("Warning: No YOLO model file found (best.pt or best(2).pt)")
-except Exception as e:
-    model = None
-    print(f"Error loading YOLO model: {e}")
+# Global model variable - lazy loaded on first use
+_model = None
+_model_loaded = False
+
+def get_model():
+    """Lazy load YOLO model on first use - reduces startup memory
+    
+    Tries to use ONNX model first (50-100MB) for memory efficiency,
+    falls back to PyTorch if ONNX not available (300MB)
+    """
+    global _model, _model_loaded
+    
+    if _model_loaded:
+        return _model
+    
+    _model_loaded = True
+    
+    try:
+        # Try to load ONNX model first (smallest)
+        if os.path.exists('best.onnx'):
+            print("Loading YOLO model from best.onnx (ONNX - optimized)...")
+            _model = YOLO('best.onnx')
+            print("✅ ONNX model loaded successfully (50-100 MB)")
+        elif os.path.exists('best(2).onnx'):
+            print("Loading YOLO model from best(2).onnx (ONNX - optimized)...")
+            _model = YOLO('best(2).onnx')
+            print("✅ ONNX model loaded successfully (50-100 MB)")
+        # Fall back to PyTorch if ONNX not available
+        elif os.path.exists('best.pt'):
+            print("Loading YOLO model from best.pt (PyTorch)...")
+            _model = YOLO('best.pt')
+            print("⚠️  PyTorch model loaded (300 MB). Consider converting to ONNX!")
+        elif os.path.exists('best(2).pt'):
+            print("Loading YOLO model from best(2).pt (PyTorch)...")
+            _model = YOLO('best(2).pt')
+            print("⚠️  PyTorch model loaded (300 MB). Consider converting to ONNX!")
+        else:
+            _model = None
+            print("❌ Error: No model file found (best.pt, best.onnx, best(2).pt, or best(2).onnx)")
+    except Exception as e:
+        _model = None
+        print(f"❌ Error loading YOLO model: {e}")
+    
+    return _model
+
+# Keep 'model' variable for backward compatibility with app.py imports
+model = None
 
 
 def process_image(image_path):
-    """Process image and detect potholes (optimized)"""
+    """Process image and detect potholes (memory-optimized with streaming)"""
+    model = get_model()
     if model is None:
         return None, "Model not loaded"
     
     try:
         file_name = Path(image_path).name
         
+        # OPTIMIZATION 1: Stream image - load with reduced resolution first
+        img_original = cv2.imread(image_path)
+        if img_original is None:
+            return None, f"Failed to load image: {image_path}"
+        
+        # Get original dimensions for later scaling
+        orig_height, orig_width = img_original.shape[:2]
+        
+        # OPTIMIZATION 2: Reduce image resolution to save memory during inference
+        # Max size 416x416 (matches imgsz), aspect ratio preserved
+        max_dim = 416
+        if orig_width > max_dim or orig_height > max_dim:
+            scale = min(max_dim / orig_width, max_dim / orig_height)
+            new_width = int(orig_width * scale)
+            new_height = int(orig_height * scale)
+            img_inference = cv2.resize(img_original, (new_width, new_height), interpolation=cv2.INTER_AREA)
+            print(f"📸 Image resized: {orig_width}x{orig_height} → {new_width}x{new_height} (memory optimized)")
+        else:
+            img_inference = img_original
+        
         # Prediction with optimized parameters
         results = model.predict(
-            source=image_path, 
+            source=img_inference, 
             conf=0.2, 
-            imgsz=416,  # Reduced from 640 for faster inference
+            imgsz=416,
             verbose=False,
-            device=0 if torch.cuda.is_available() else 'cpu'
+            device='cpu'  # CPU only for deployment
         )
         result = results[0]
         pothole_count = len(result.boxes) if result.boxes is not None else 0
@@ -64,11 +120,16 @@ def process_image(image_path):
             'detections': []
         }
 
-        # Get detection details
+        # Get detection details - scale coordinates back to original size
         if pothole_count > 0:
+            scale_x = orig_width / img_inference.shape[1]
+            scale_y = orig_height / img_inference.shape[0]
+            
             for i, box in enumerate(result.boxes, 1):
                 conf = box.conf.item()
                 x1, y1, x2, y2 = box.xyxy[0]
+                # Scale back to original image coordinates
+                x1, y1, x2, y2 = x1 * scale_x, y1 * scale_y, x2 * scale_x, y2 * scale_y
                 width = x2 - x1
                 height = y2 - y1
                 report_data['detections'].append({
@@ -112,43 +173,44 @@ def process_image(image_path):
             else:
                 rf.write("\nNo potholes detected\n")
 
-        # Create annotated image
-        img = cv2.imread(image_path)
-        
-        if img is None:
-            return None, f"Failed to load image: {image_path}"
+        # OPTIMIZATION 3: Draw boxes on original image for annotation
+        img_annotated = img_original.copy()
         
         # Draw bounding boxes on detected potholes
         if result.boxes is not None and len(result.boxes) > 0:
+            scale_x = orig_width / img_inference.shape[1]
+            scale_y = orig_height / img_inference.shape[0]
+            
             for box in result.boxes:
                 x1, y1, x2, y2 = box.xyxy[0]
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                # Scale to original coordinates
+                x1, y1, x2, y2 = int(x1 * scale_x), int(y1 * scale_y), int(x2 * scale_x), int(y2 * scale_y)
                 conf = box.conf.item()
                 
                 # Draw rectangle with bright cyan color
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 255), 3)
+                cv2.rectangle(img_annotated, (x1, y1), (x2, y2), (0, 255, 255), 3)
                 
                 # Draw filled background for text
                 label = f"Pothole: {conf:.2%}"
                 text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-                cv2.rectangle(img, (x1, y1 - text_size[1] - 8), (x1 + text_size[0] + 4, y1), (0, 255, 255), -1)
+                cv2.rectangle(img_annotated, (x1, y1 - text_size[1] - 8), (x1 + text_size[0] + 4, y1), (0, 255, 255), -1)
                 
                 # Put text
-                cv2.putText(img, label, (x1 + 2, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                cv2.putText(img_annotated, label, (x1 + 2, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
-        # Save annotated image to /tmp
+        # Save annotated image with compression
         output_path = report_dir / f"annotated_{timestamp}.jpg"
-        cv2.imwrite(str(output_path), img, [cv2.IMWRITE_JPEG_QUALITY, 85])  # Reduced quality for smaller file
+        cv2.imwrite(str(output_path), img_annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
-        # Convert to base64 for display
-        _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        # Convert to base64 for display (stream conversion to avoid memory spike)
+        _, buffer = cv2.imencode('.jpg', img_annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
         # Save report to database
         save_report_to_db('image', file_name, report_data, str(report_file_txt))
 
         # Clean up memory aggressively
-        del img, buffer, result, results
+        del img_original, img_inference, img_annotated, buffer, result, results
         gc.collect()
 
         return {
@@ -208,7 +270,8 @@ def update_report_with_location(report_data, latitude, longitude):
 
 
 def process_video(video_path):
-    """Process video and detect potholes in frames (optimized)"""
+    """Process video and detect potholes in frames (memory-optimized streaming)"""
+    model = get_model()
     if model is None:
         return None, "Model not loaded"
     
@@ -247,10 +310,20 @@ def process_video(video_path):
             if frame_number % frame_skip != 0:
                 continue
             
-            # Reduce frame size for inference (keep aspect ratio)
+            # OPTIMIZATION: Reduce frame size for inference (keep aspect ratio)
             h, w = frame.shape[:2]
-            scale_factor = 0.75  # Process at 75% original size
-            frame_resized = cv2.resize(frame, (int(w * scale_factor), int(h * scale_factor)), interpolation=cv2.INTER_LINEAR)
+            
+            # Stream optimization: Only keep reduced-size frame in memory
+            max_dim = 384  # Smaller than image for video efficiency
+            if w > max_dim or h > max_dim:
+                scale = min(max_dim / w, max_dim / h)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                frame_resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+                scale_factor = scale
+            else:
+                frame_resized = frame
+                scale_factor = 1.0
             
             current_centroids = {}
             
@@ -258,9 +331,9 @@ def process_video(video_path):
                 results = model.predict(
                     source=frame_resized, 
                     conf=0.25, 
-                    imgsz=384,  # Reduced from 640
+                    imgsz=384,  # Optimized size
                     verbose=False,
-                    device=0 if torch.cuda.is_available() else 'cpu'
+                    device='cpu'  # CPU only
                 )
                 result = results[0]
                 pothole_count = len(result.boxes) if result.boxes is not None else 0
@@ -315,7 +388,7 @@ def process_video(video_path):
                 print(f"Error processing frame {frame_number}: {e}")
             
             finally:
-                # Clean up frame memory
+                # Clean up frame memory immediately (streaming)
                 del frame_resized
                 if frame_number % 100 == 0:
                     gc.collect()

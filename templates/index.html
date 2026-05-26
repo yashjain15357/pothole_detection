@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <!-- Leaflet CSS for Map -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <!-- Chart.js for Dashboard Charts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -16,11 +18,147 @@
         </header>
 
         <nav class="nav-tabs">
-            <button class="nav-btn active" data-tab="image">Image Detection</button>
+            <button class="nav-btn active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="nav-btn" data-tab="image">Image Detection</button>
             <button class="nav-btn" data-tab="video">Video Detection</button>
             <button class="nav-btn" data-tab="camera">Live Camera</button>
             <button class="nav-btn" data-tab="reports">Reports</button>
         </nav>
+
+        <!-- Dashboard Tab -->
+        <section id="dashboard-tab" class="tab-content active">
+            <!-- Summary Cards -->
+            <div class="dashboard-summary">
+                <div class="summary-card">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-content">
+                        <h3>Total Reports</h3>
+                        <p class="summary-value" id="summary-total-reports">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">🕳️</div>
+                    <div class="summary-content">
+                        <h3>Total Potholes</h3>
+                        <p class="summary-value" id="summary-total-potholes">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">📷</div>
+                    <div class="summary-content">
+                        <h3>Image Reports</h3>
+                        <p class="summary-value" id="summary-image-reports">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">🎥</div>
+                    <div class="summary-content">
+                        <h3>Video Reports</h3>
+                        <p class="summary-value" id="summary-video-reports">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">📹</div>
+                    <div class="summary-content">
+                        <h3>Camera Reports</h3>
+                        <p class="summary-value" id="summary-camera-reports">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="dashboard-charts">
+                <div class="chart-container">
+                    <h3>Reports by Type</h3>
+                    <canvas id="reports-by-type-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Potholes by Type</h3>
+                    <canvas id="potholes-by-type-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Reports by Date (Last 7 Days)</h3>
+                    <canvas id="daily-reports-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Average Potholes per Report Type</h3>
+                    <canvas id="avg-potholes-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Reports Section -->
+            <div class="card" style="margin-top: 30px;">
+                <h3>🔝 Top Reports by Pothole Count</h3>
+                <div id="top-reports-list" class="top-reports-table">
+                    <!-- Top reports will be populated here -->
+                </div>
+            </div>
+
+            <!-- Query Filter Section -->
+            <div class="card" style="margin-top: 30px;">
+                <h2>🔍 Analyze Reports with Filters</h2>
+                <div class="filter-container">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Report Type:</label>
+                            <select id="filter-type">
+                                <option value="">All Types</option>
+                                <option value="image">Image</option>
+                                <option value="video">Video</option>
+                                <option value="camera">Camera</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Min Potholes:</label>
+                            <input type="number" id="filter-min-potholes" min="0" placeholder="0">
+                        </div>
+                        <div class="filter-group">
+                            <label>Max Potholes:</label>
+                            <input type="number" id="filter-max-potholes" min="0" placeholder="1000">
+                        </div>
+                    </div>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>From Date:</label>
+                            <input type="date" id="filter-date-from">
+                        </div>
+                        <div class="filter-group">
+                            <label>To Date:</label>
+                            <input type="date" id="filter-date-to">
+                        </div>
+                        <div class="filter-group">
+                            <label>Sort By:</label>
+                            <select id="filter-sort-by">
+                                <option value="created_at">Newest First</option>
+                                <option value="pothole_count">Highest Count</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" id="apply-filters-btn">🔍 Apply Filters</button>
+                        <button class="btn btn-secondary" id="reset-filters-btn">↺ Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtered Results Section -->
+            <div id="filtered-results-section" class="card" style="margin-top: 30px; display: none;">
+                <h3>📋 Filtered Results</h3>
+                <div id="filtered-results-stats" class="filter-stats">
+                    <p>Total Results: <strong id="filtered-count">0</strong></p>
+                </div>
+                <div id="filtered-reports-table" class="filtered-reports-table">
+                    <!-- Filtered reports will be populated here -->
+                </div>
+            </div>
+
+            <div id="dashboard-loading" class="loading-spinner hidden">
+                <div class="spinner"></div>
+                <p>Loading dashboard data...</p>
+            </div>
+
+            <div id="dashboard-error" class="error-message hidden"></div>
+        </section>
 
         <!-- Image Detection Tab -->
         <section id="image-tab" class="tab-content active">
