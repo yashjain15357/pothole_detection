@@ -10,9 +10,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from google.auth.exceptions import RefreshError
 
-# ============================================================================
-# GOOGLE OAUTH CONFIGURATION
-# ============================================================================
 
 # Paths for credentials and tokens
 GOOGLE_OAUTH_CREDENTIALS = 'google_oauth_credentials.json'
@@ -166,11 +163,6 @@ def clear_token():
     except Exception as e:
         print(f"❌ Error clearing token: {e}")
         return False
-
-
-# ============================================================================
-# Helper function to setup initial config
-# ============================================================================
 
 def setup_oauth_config(client_id, client_secret, redirect_uri='http://localhost:5000/auth/callback'):
     """

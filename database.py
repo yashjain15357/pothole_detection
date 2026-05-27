@@ -44,7 +44,7 @@ def init_database():
         
         conn.commit()
         conn.close()
-        print("✓ Database initialized successfully")
+        print("Database initialized successfully")
     except Exception as e:
         print(f"Error initializing database: {e}")
 
@@ -94,7 +94,7 @@ def save_report_to_db(report_type, filename, report_data, report_path):
         conn.commit()
         report_id = c.lastrowid
         conn.close()
-        print(f"✓ {report_type.capitalize()} report saved to database (id={report_id})")
+        print(f"{report_type.capitalize()} report saved to database (id={report_id})")
         return report_id
     except Exception as e:
         print(f"Error saving report to database: {e}")
@@ -206,7 +206,7 @@ def save_report_file(report_id, filename, content_bytes, mime_type='text/plain')
         conn.commit()
         file_id = c.lastrowid
         conn.close()
-        print(f"✓ Report file saved to DB (file_id={file_id}, report_id={report_id})")
+        print(f"Report file saved to DB (file_id={file_id}, report_id={report_id})")
         return file_id
     except Exception as e:
         print(f"Error saving report file to DB: {e}")
@@ -254,7 +254,7 @@ def delete_report_from_db(report_id):
         conn.commit()
         conn.close()
         
-        print(f"✓ Report {report_id} deleted from database")
+        print(f"Report {report_id} deleted from database")
         return True
     except Exception as e:
         print(f"Error deleting report from database: {e}")
