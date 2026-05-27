@@ -11,21 +11,35 @@ os.environ['ULTRALYTICS_SKIP_UPDATE'] = 'true'
 # Optimization: Set memory optimization flags
 os.environ['PYTHONUNBUFFERED'] = '1'
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from pathlib import Path
 import cv2
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from ultralytics import YOLO
 import json
 import base64
 from io import BytesIO
 import re
 import threading
+import smtplib
+import ssl
 import torch
+from functools import wraps
+import mimetypes
+from urllib.parse import urlencode
+from authlib.integrations.flask_client import OAuth
 
 # Import database functions
-from database import init_database, save_report_to_db, get_reports_from_db, get_database_stats, get_report_by_id
+from database import (
+    init_database,
+    save_report_to_db,
+    save_report_file,
+    get_reports_from_db,
+    get_database_stats,
+    get_report_by_id,
+    get_report_file
+)
 
 # Import process functions from process module
 from process import process_image, process_video, update_report_with_location, model
@@ -35,6 +49,101 @@ gc.set_threshold(500, 5, 5)
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
+app.config['SECRET_KEY'] = 'pothole_detection_secret_key_2024'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
+# Simple user database for normal login (in production, use proper database)
+USERS = {
+    'admin': 'admin123',
+    'user': 'user123',
+    'demo': 'demo123'
+}
+
+# Initialize OAuth for Google authentication
+oauth = OAuth(app)
+
+def load_google_oauth_credentials():
+    client_id = os.getenv('GOOGLE_CLIENT_ID', '').strip()
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '').strip()
+
+    credentials_file = Path('google_oauth_credentials.json')
+    if credentials_file.exists() and (not client_id or not client_secret):
+        try:
+            with open(credentials_file, 'r', encoding='utf-8') as file:
+                config = json.load(file)
+
+            oauth_config = config.get('installed') or config.get('web') or {}
+            client_id = client_id or str(oauth_config.get('client_id', '')).strip()
+            client_secret = client_secret or str(oauth_config.get('client_secret', '')).strip()
+        except Exception as error:
+            print(f"❌ Failed to load Google OAuth credentials from file: {error}")
+
+    return client_id, client_secret
+
+
+def register_google_oauth():
+    client_id, client_secret = load_google_oauth_credentials()
+
+    if not client_id or not client_secret:
+        print(
+            "⚠️ Google OAuth is not configured. Set GOOGLE_CLIENT_ID and "
+            "GOOGLE_CLIENT_SECRET or add an ignored google_oauth_credentials.json file."
+        )
+        return None
+
+    return oauth.register(
+        name='google',
+        client_id=client_id,
+        client_secret=client_secret,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
+
+
+# Register Google OAuth with non-committed credentials
+google = register_google_oauth()
+
+# Configure garbage collection for better memory usage
+gc.set_threshold(500, 5, 5)
+
+# SMTP email configuration
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_EMAIL = os.getenv('SMTP_EMAIL', '').strip()
+SMTP_APP_PASSWORD = os.getenv('SMTP_APP_PASSWORD', '').strip()
+SMTP_USE_STARTTLS = os.getenv('SMTP_USE_STARTTLS', 'true').lower() in ('1', 'true', 'yes')
+
+
+def load_smtp_config_from_file():
+    config_file = Path('smtp_config.json')
+    if not config_file.exists():
+        return
+
+    try:
+        with open(config_file, 'r', encoding='utf-8') as file:
+            config = json.load(file)
+
+        global SMTP_SERVER, SMTP_PORT, SMTP_EMAIL, SMTP_APP_PASSWORD, SMTP_USE_STARTTLS
+        loaded_server = str(config.get('SMTP_SERVER', SMTP_SERVER)).strip()
+        if loaded_server and '@' not in loaded_server:
+            SMTP_SERVER = loaded_server
+        SMTP_PORT = int(config.get('SMTP_PORT', SMTP_PORT))
+        SMTP_EMAIL = str(config.get('SMTP_EMAIL', SMTP_EMAIL)).strip() or SMTP_EMAIL
+        SMTP_APP_PASSWORD = str(config.get('SMTP_APP_PASSWORD', SMTP_APP_PASSWORD)).strip() or SMTP_APP_PASSWORD
+        SMTP_USE_STARTTLS = bool(config.get('SMTP_USE_STARTTLS', SMTP_USE_STARTTLS))
+    except Exception as e:
+        print(f"❌ Failed to load smtp_config.json: {e}")
+
+
+def smtp_config_ready():
+    if SMTP_EMAIL and SMTP_APP_PASSWORD:
+        return True
+
+    load_smtp_config_from_file()
+    return bool(SMTP_EMAIL and SMTP_APP_PASSWORD)
 
 # Global camera session tracker - tracks potholes across frames
 camera_session = {
@@ -50,13 +159,169 @@ SUPPORTED_IMAGES = ('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff')
 SUPPORTED_VIDEOS = ('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')
 
 
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def resolve_report_file(report_path: str):
+    """Resolve a report file path safely on Windows and recover from escaped paths."""
+    if not report_path:
+        return None
+
+    cleaned_path = str(report_path).strip().strip('"').strip("'")
+    cleaned_path = cleaned_path.replace('\t', '').replace('\n', '').replace('\r', '').replace('\x0b', '').replace('\x0c', '')
+    cleaned_path = cleaned_path.replace(chr(92), '/')
+
+    candidate = Path(cleaned_path)
+    if candidate.exists():
+        return candidate
+
+    filename = candidate.name or cleaned_path.split('/')[-1]
+    search_roots = [
+        Path.cwd(),
+        Path('IN_image'),
+        Path('IN_image/locations'),
+        Path('IN_vedio'),
+        Path('IN_vedio/locations'),
+        Path('IN_cam'),
+    ]
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        try:
+            for file_path in root.rglob('*'):
+                if file_path.is_file() and (file_path.name == filename or filename in file_path.name):
+                    return file_path
+        except Exception:
+            continue
+
+    return None
+
+
 # Routes
 @app.route('/')
-def index():
+def home():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        # Check if user is already logged in
+        if 'user_id' in session:
+            return redirect(url_for('dashboard'))
+        return render_template('login.html')
+    
+    # POST request - handle normal login
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+    
+    # Check credentials
+    if username in USERS and USERS[username] == password:
+        session['user_id'] = username
+        session['username'] = username
+        session['auth_method'] = 'normal'
+        session.permanent = True
+        return jsonify({'success': True, 'message': 'Login successful'})
+    
+    return jsonify({'success': False, 'error': 'Invalid username or password'}), 401
+
+
+@app.route('/login-google')
+def google_login():
+    """Redirect user to Google OAuth login page"""
+    try:
+        if google is None:
+            print("❌ Google OAuth is not configured")
+            return redirect(url_for('login'))
+
+        # Use exact redirect URI that matches Google Cloud Console
+        redirect_uri = url_for('google_authorize', _external=True)
+        print(f"🔗 Redirecting to Google with URI: {redirect_uri}")
+        return google.authorize_redirect(redirect_uri)
+    except Exception as e:
+        print(f"❌ Error in google_login: {e}")
+        return redirect(url_for('login'))
+
+
+@app.route('/authorize')
+def google_authorize():
+    """Google OAuth callback handler"""
+    try:
+        if google is None:
+            print("❌ Google OAuth is not configured")
+            return redirect(url_for('login'))
+
+        print("📍 Callback received from Google")
+        
+        # Get the authorization token
+        token = google.authorize_access_token()
+        print(f"✓ Token received")
+        
+        # Extract user info
+        user = token.get('userinfo')
+        print(f"📦 User info: {user}")
+        
+        if not user or not user.get('email'):
+            print("❌ No user info received")
+            return redirect(url_for('login'))
+        
+        # Store user info in session
+        session['user_id'] = user.get('email')
+        session['username'] = user.get('name', 'User')
+        session['email'] = user.get('email', '')
+        session['picture'] = user.get('picture', '')
+        session['auth_method'] = 'google'
+        session.permanent = True
+        
+        print(f"✓ User logged in via Google: {user.get('email')}")
+        print(f"✓ Redirecting to dashboard")
+        
+        return redirect(url_for('dashboard'))
+    
+    except Exception as e:
+        print(f"❌ Google OAuth error: {e}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('login'))
+
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
     return render_template('index.html')
 
 
+@app.route('/')
+def index():
+    # Redirect to login if not authenticated, otherwise to dashboard
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+
 @app.route('/upload-image', methods=['POST'])
+@login_required
 def upload_image():
     """Upload and process image from device"""
     if 'file' not in request.files:
@@ -103,6 +368,7 @@ def upload_image():
 
 
 @app.route('/upload-video', methods=['POST'])
+@login_required
 def upload_video():
     """Upload and process video from device"""
     if 'file' not in request.files:
@@ -134,6 +400,7 @@ def upload_video():
 
 
 @app.route('/reports')
+@login_required
 def reports():
     """Get list of all reports from database"""
     # Fetch reports from database
@@ -143,6 +410,7 @@ def reports():
 
 
 @app.route('/reports-stats')
+@login_required
 def reports_stats():
     """Get database statistics"""
     stats = get_database_stats()
@@ -150,6 +418,7 @@ def reports_stats():
 
 
 @app.route('/api/dashboard/analytics', methods=['GET'])
+@login_required
 def dashboard_analytics():
     """Get comprehensive analytics for dashboard"""
     try:
@@ -213,6 +482,7 @@ def dashboard_analytics():
 
 
 @app.route('/api/dashboard/reports-filtered', methods=['GET'])
+@login_required
 def get_filtered_reports():
     """Get filtered reports based on query parameters"""
     try:
@@ -291,6 +561,7 @@ def get_filtered_reports():
 
 
 @app.route('/report/<path:report_path>')
+@login_required
 def get_report(report_path):
     """Get report content"""
     try:
@@ -315,6 +586,7 @@ def get_report(report_path):
 
 
 @app.route('/report-by-id/<int:report_id>')
+@login_required
 def get_report_by_id_route(report_id):
     """Get report content by ID from database"""
     try:
@@ -338,24 +610,163 @@ def get_report_by_id_route(report_id):
 
 
 @app.route('/download-report/<path:report_path>')
+@login_required
 def download_report(report_path):
     """Download report file"""
+    # Log incoming request info for debugging
     try:
-        file_path = Path(report_path)
-        if not file_path.exists():
-            return jsonify({'error': 'Report not found'}), 404
-        
-        # Send file as attachment
+        print(f"🔍 Raw download request - report_path param: {report_path}")
+        print(f"🔍 Request URL: {request.url}")
+        print(f"🔍 Full path: {request.full_path}")
+    except Exception:
+        pass
+
+    file_path = resolve_report_file(report_path)
+    if not file_path:
+        return jsonify({'error': 'Report not found'}), 404
+
+    download_name = file_path.name
+    mimetype = 'text/plain' if file_path.suffix.lower() == '.txt' else 'application/octet-stream'
+
+    # Log file info for debugging
+    try:
+        size = file_path.stat().st_size
+    except Exception:
+        size = None
+    print(f"📥 Download requested: {file_path} (size={size})")
+
+    if size == 0:
+        print("⚠️ Report file size is 0 bytes — returning error instead of empty download")
+        return jsonify({'error': 'Report file is empty'}), 500
+
+    # Try modern Flask argument first, fall back to older name if needed
+    try:
         return send_file(
             str(file_path),
             as_attachment=True,
-            download_name=file_path.name
+            download_name=download_name,
+            mimetype=mimetype
         )
+    except TypeError:
+        # Older Flask versions use 'attachment_filename'
+        try:
+            return send_file(
+                str(file_path),
+                as_attachment=True,
+                attachment_filename=download_name,
+                mimetype=mimetype
+            )
+        except Exception as e:
+            # As a last-resort fallback, stream file bytes manually
+            try:
+                from flask import Response
+                with open(file_path, 'rb') as f:
+                    data = f.read()
+                headers = {
+                    'Content-Disposition': f'attachment; filename="{download_name}"',
+                    'Content-Type': mimetype
+                }
+                return Response(data, headers=headers)
+            except Exception as e2:
+                print(f"❌ Fallback streaming failed: {e2}")
+                return jsonify({'error': str(e)}), 500
+
+
+@app.route('/download-report-pdf/<int:report_id>')
+@login_required
+def download_report_pdf(report_id):
+    """Generate a PDF from stored report text (from DB) and send as attachment."""
+    try:
+        # Fetch report metadata
+        report = get_report_by_id(report_id)
+        if not report:
+            return jsonify({'error': 'Report not found'}), 404
+
+        # Try fetching stored file blob from DB
+        file_entry = get_report_file(report_id)
+        report_text = None
+        if file_entry and file_entry.get('content'):
+            try:
+                # content may be bytes
+                content = file_entry['content']
+                if isinstance(content, bytes):
+                    report_text = content.decode('utf-8', errors='replace')
+                else:
+                    report_text = str(content)
+            except Exception:
+                report_text = None
+
+        # Fallback: try reading from filesystem path stored in report
+        if not report_text and report.get('path'):
+            try:
+                p = Path(report.get('path'))
+                if p.exists():
+                    with open(p, 'r', encoding='utf-8') as f:
+                        report_text = f.read()
+            except Exception as e:
+                print(f"❌ Failed to read report file from disk: {e}")
+
+        if not report_text:
+            return jsonify({'error': 'No report content available to generate PDF'}), 404
+
+        # Generate PDF in-memory using reportlab if available
+        try:
+            from io import BytesIO
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+            except Exception as e:
+                print('❌ reportlab not installed:', e)
+                return jsonify({'error': 'PDF generation requires reportlab. Install with: pip install reportlab'}), 500
+
+            buffer = BytesIO()
+            c = canvas.Canvas(buffer, pagesize=letter)
+            width, height = letter
+            margin = 40
+            y = height - margin
+            line_height = 12
+
+            # Draw title
+            title = report.get('name') or f'Report_{report_id}'
+            c.setFont('Helvetica-Bold', 14)
+            c.drawString(margin, y, title)
+            y -= (line_height * 2)
+
+            c.setFont('Helvetica', 10)
+            for raw_line in report_text.splitlines():
+                # wrap long lines
+                line = raw_line
+                max_chars = 95
+                while len(line) > 0:
+                    chunk = line[:max_chars]
+                    c.drawString(margin, y, chunk)
+                    y -= line_height
+                    line = line[max_chars:]
+                    if y < margin + line_height:
+                        c.showPage()
+                        y = height - margin
+                        c.setFont('Helvetica', 10)
+
+            c.save()
+            buffer.seek(0)
+
+            download_name = f"{(report.get('name') or f'report_{report_id}').replace(' ', '_')}.pdf"
+            try:
+                return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/pdf')
+            except TypeError:
+                return send_file(buffer, as_attachment=True, attachment_filename=download_name, mimetype='application/pdf')
+
+        except Exception as e:
+            print(f"❌ PDF generation error: {e}")
+            return jsonify({'error': str(e)}), 500
+
     except Exception as e:
+        print(f"❌ Error in download_report_pdf: {e}")
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/start-camera-session', methods=['POST'])
+@login_required
 def start_camera_session():
     """Initialize camera tracking session"""
     global camera_session
@@ -380,7 +791,18 @@ def health():
     }), 200
 
 
+@app.route('/api/user-info', methods=['GET'])
+@login_required
+def user_info():
+    """Get current user information"""
+    return jsonify({
+        'username': session.get('username'),
+        'user_id': session.get('user_id')
+    }), 200
+
+
 @app.route('/detect-frame', methods=['POST'])
+@login_required
 def detect_frame():
     """Process a single frame for camera detection"""
     if model is None:
@@ -541,6 +963,7 @@ def detect_frame():
 
 
 @app.route('/save-camera-report', methods=['POST'])
+@login_required
 def save_camera_report():
     """Save camera detection report"""
     try:
@@ -582,13 +1005,21 @@ def save_camera_report():
             
             rf.write("\n" + "=" * 50 + "\n")
         
-        # Save report to database
-        save_report_to_db('camera', None, data, str(report_file_txt))
-        
+        # Save report to database and attach TXT content as blob
+        report_id = save_report_to_db('camera', None, data, str(report_file_txt))
+        try:
+            if report_id:
+                with open(report_file_txt, 'rb') as f:
+                    content_bytes = f.read()
+                save_report_file(report_id, report_file_txt.name, content_bytes, mime_type='text/plain')
+        except Exception as e:
+            print(f"⚠️ Failed to save report blob to DB: {e}")
+
         return jsonify({
             'success': True,
             'message': 'Report saved successfully',
-            'report_file': str(report_file_txt)
+            'report_file': str(report_file_txt),
+            'report_id': report_id
         }), 200
     
     except Exception as e:
@@ -596,6 +1027,7 @@ def save_camera_report():
 
 
 @app.route('/save-location-with-report', methods=['POST'])
+@login_required
 def save_location_with_report():
     """Save location data with the detection report"""
     try:
@@ -698,6 +1130,7 @@ def save_location_with_report():
 
 
 @app.route('/save-video-location-with-report', methods=['POST'])
+@login_required
 def save_video_location_with_report():
     """Save location data with the video detection report"""
     try:
@@ -786,6 +1219,129 @@ def save_video_location_with_report():
         return jsonify({'success': True, 'message': 'Location saved', 'location_file': str(location_file)}), 200
     
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/send-report-email', methods=['POST'])
+@login_required
+def send_report_email():
+    """Send report file via email using Gmail API"""
+    try:
+        data = request.get_json() or {}
+        report_path_raw = data.get('report_path', '')
+        report_name = data.get('report_name', 'report')
+        recipient_email = data.get('recipient_email', '').strip()
+        message = data.get('message', '')
+        
+        # Validate inputs
+        if not recipient_email:
+            return jsonify({'success': False, 'error': 'Recipient email is required'}), 400
+        
+        if not report_path_raw:
+            return jsonify({'success': False, 'error': 'Report path is required'}), 400
+        
+        # Check if report file exists
+        file_path = resolve_report_file(report_path_raw)
+        if not file_path:
+            return jsonify({'success': False, 'error': f'Report file not found: {report_path_raw}'}), 404
+
+        report_name = report_name or file_path.name
+
+        if not smtp_config_ready():
+            return jsonify({
+                'success': False,
+                'error': 'SMTP is not configured. Set SMTP_EMAIL and SMTP_APP_PASSWORD environment variables.'
+            }), 500
+
+        if '@' in SMTP_SERVER or '.' not in SMTP_SERVER:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid SMTP server configured: {SMTP_SERVER}. Use smtp.gmail.com for Gmail.'
+            }), 500
+        
+        try:
+            # Create message with attachment
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.base import MIMEBase
+            from email import encoders
+            
+            msg = MIMEMultipart()
+            msg['to'] = recipient_email
+            msg['subject'] = f'Pothole Detection Report - {report_name}'
+            
+            # Email body
+            body = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <h2 style="color: #667eea;">🛣️ Pothole Detection Report</h2>
+                    <p>Dear User,</p>
+                    <p>Please find attached the pothole detection report: <strong>{report_name}</strong></p>
+                    
+                    {f'<p><strong>Message from sender:</strong></p><p style="background: #f5f5f5; padding: 10px; border-left: 4px solid #667eea;">{message}</p>' if message else ''}
+                    
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    
+                    <p><strong>Report Details:</strong></p>
+                    <ul>
+                        <li>Report Name: {report_name}</li>
+                        <li>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</li>
+                        <li>Sent by: Pothole Detection System</li>
+                    </ul>
+                    
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    
+                    <p style="font-size: 12px; color: #999;">
+                        This is an automated email from the Pothole Detection System. 
+                        Please do not reply to this email.
+                    </p>
+                </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(body, 'html'))
+            
+            # Attach file
+            try:
+                with open(file_path, 'rb') as attachment:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f'attachment; filename= {file_path.name}')
+                    msg.attach(part)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to attach file: {str(e)}'}), 500
+            
+            # Send email via SMTP
+            try:
+                context = ssl.create_default_context()
+                with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
+                    if SMTP_USE_STARTTLS:
+                        server.ehlo()
+                        server.starttls(context=context)
+                        server.ehlo()
+                    server.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
+                    server.sendmail(SMTP_EMAIL, recipient_email, msg.as_string())
+                
+                print(f"✓ Email sent successfully to {recipient_email}")
+                return jsonify({
+                    'success': True,
+                    'message': f'Report sent successfully to {recipient_email}'
+                }), 200
+                
+            except Exception as error:
+                print(f"❌ SMTP error: {error}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to send email via SMTP: {str(error)}. Check SMTP server, username, and app password.'
+                }), 500
+        
+        except Exception as e:
+            print(f"❌ Error sending email: {e}")
+            return jsonify({'success': False, 'error': f'Failed to send email: {str(e)}'}), 500
+    
+    except Exception as e:
+        print(f"❌ Error processing email request: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

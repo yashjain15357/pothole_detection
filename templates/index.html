@@ -13,8 +13,17 @@
 <body>
     <div class="container">
         <header>
-            <h1>🛣️ Pothole Detection System</h1>
-            <p>AI-Powered Pothole Detection using YOLO</p>
+            <div class="header-content">
+                <div>
+                    <h1>FIX MY CITY</h1>
+                    <h3>🛣️ Pothole Detection System</h3>
+                    <p>AI-Powered Pothole Detection using YOLO</p>
+                </div>
+                <div class="header-actions">
+                    <span id="username-display" class="username-text"></span>
+                    <button id="logout-btn" class="logout-btn">Logout</button>
+                </div>
+            </div>
         </header>
 
         <nav class="nav-tabs">
@@ -370,6 +379,33 @@
             <span class="close">&times;</span>
             <h2>Report Details</h2>
             <div id="modal-report-content" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Modal for sending email -->
+    <div id="email-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeEmailModal()">&times;</span>
+            <h2>📧 Send Report via Email</h2>
+            <div id="email-modal-body" class="modal-body">
+                <form id="email-form">
+                    <div class="form-group">
+                        <label for="recipient-email">Recipient Email Address:</label>
+                        <input type="email" id="recipient-email" name="recipient-email" required placeholder="example@gmail.com">
+                        <small>We'll send the report file to this email address</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="email-message">Message (Optional):</label>
+                        <textarea id="email-message" name="email-message" placeholder="Add a message to include with the report..." rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary" id="send-email-btn">Send Email</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeEmailModal()">Cancel</button>
+                    </div>
+                    <div id="email-error" class="error-message hidden"></div>
+                    <div id="email-success" class="success-message hidden"></div>
+                </form>
+            </div>
         </div>
     </div>
 

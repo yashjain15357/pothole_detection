@@ -64,6 +64,7 @@ best.pt
 # Environment variables
 .env
 .env.local
+google_oauth_credentials.json
 
 # OS files
 .DS_Store

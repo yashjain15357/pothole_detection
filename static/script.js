@@ -701,12 +701,16 @@ function displayReports(data) {
     // Display image reports
     if (data.image_reports.length > 0) {
         imageReportsList.innerHTML = data.image_reports.map(report => 
-            `<div class="report-item">
+                `<div class="report-item">
                 <div style="flex: 1; cursor: pointer;" onclick="viewReportById(${report.id})">
                     📄 ${report.name}
                     <small>${new Date(report.created * 1000).toLocaleString()}</small>
                 </div>
-                <button class="btn btn-small" onclick="downloadReport('${report.path}', '${report.name}')" style="margin-left: auto;">⬇️ Download</button>
+                <div class="report-actions">
+                    <button class="btn btn-small" onclick="downloadReport(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">⬇️ Download</button>
+                    <button class="btn btn-small" onclick="downloadPdf(${report.id})">📄 PDF</button>
+                    <button class="btn btn-small btn-email" onclick="showEmailModal(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">📧 Email</button>
+                </div>
             </div>`
         ).join('');
     } else {
@@ -716,12 +720,16 @@ function displayReports(data) {
     // Display video reports
     if (data.video_reports.length > 0) {
         videoReportsList.innerHTML = data.video_reports.map(report => 
-            `<div class="report-item">
+                `<div class="report-item">
                 <div style="flex: 1; cursor: pointer;" onclick="viewReportById(${report.id})">
                     📄 ${report.name}
                     <small>${new Date(report.created * 1000).toLocaleString()}</small>
                 </div>
-                <button class="btn btn-small" onclick="downloadReport('${report.path}', '${report.name}')" style="margin-left: auto;">⬇️ Download</button>
+                <div class="report-actions">
+                    <button class="btn btn-small" onclick="downloadReport(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">⬇️ Download</button>
+                    <button class="btn btn-small" onclick="downloadPdf(${report.id})">📄 PDF</button>
+                    <button class="btn btn-small btn-email" onclick="showEmailModal(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">📧 Email</button>
+                </div>
             </div>`
         ).join('');
     } else {
@@ -731,12 +739,16 @@ function displayReports(data) {
     // Display camera reports
     if (data.camera_reports.length > 0) {
         cameraReportsList.innerHTML = data.camera_reports.map(report => 
-            `<div class="report-item">
+                `<div class="report-item">
                 <div style="flex: 1; cursor: pointer;" onclick="viewReportById(${report.id})">
                     📄 ${report.name}
                     <small>${new Date(report.created * 1000).toLocaleString()}</small>
                 </div>
-                <button class="btn btn-small" onclick="downloadReport('${report.path}', '${report.name}')" style="margin-left: auto;">⬇️ Download</button>
+                <div class="report-actions">
+                    <button class="btn btn-small" onclick="downloadReport(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">⬇️ Download</button>
+                    <button class="btn btn-small" onclick="downloadPdf(${report.id})">📄 PDF</button>
+                    <button class="btn btn-small btn-email" onclick="showEmailModal(decodeURIComponent('${encodeURIComponent(report.path)}'), decodeURIComponent('${encodeURIComponent(report.name)}'))">📧 Email</button>
+                </div>
             </div>`
         ).join('');
     } else {
@@ -752,6 +764,11 @@ const modal = document.getElementById('report-modal');
 const closeBtn = document.querySelector('.close');
 const modalReportContent = document.getElementById('modal-report-content');
 
+const emailModal = document.getElementById('email-modal');
+const emailForm = document.getElementById('email-form');
+let currentReportPath = '';
+let currentReportName = '';
+
 closeBtn.addEventListener('click', () => {
     modal.classList.add('hidden');
 });
@@ -759,6 +776,9 @@ closeBtn.addEventListener('click', () => {
 window.addEventListener('click', (e) => {
     if (e.target === modal) {
         modal.classList.add('hidden');
+    }
+    if (e.target === emailModal) {
+        closeEmailModal();
     }
 });
 
@@ -805,11 +825,12 @@ function viewReport(reportPath) {
 
 function downloadReport(reportPath, reportName) {
     const reportPath2 = reportPath.replace(/\\/g, '/');
+    const downloadName = reportName.toLowerCase().endsWith('.txt') ? reportName : `${reportName}.txt`;
     
     // Create a temporary link and trigger download
     const link = document.createElement('a');
-    link.href = `/download-report/${reportPath2}`;
-    link.download = reportName;
+    link.href = `/download-report/${encodeURIComponent(reportPath2)}`;
+    link.download = downloadName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1630,4 +1651,128 @@ function resetFilters() {
     filterSortBy.value = 'created_at';
     
     document.getElementById('filtered-results-section').style.display = 'none';
+}
+
+// ============ AUTHENTICATION HANDLING ============
+
+// Display username and setup logout
+document.addEventListener('DOMContentLoaded', () => {
+    const usernameDisplay = document.getElementById('username-display');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    if (usernameDisplay && logoutBtn) {
+        // Get username from session (this will be set by Flask)
+        // We'll fetch it dynamically
+        fetch('/api/user-info', { credentials: 'include' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.username) {
+                    usernameDisplay.textContent = `👤 ${data.username}`;
+                }
+            })
+            .catch(error => console.log('Could not load user info'));
+        
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        });
+    }
+});
+
+// ============ EMAIL SENDING FUNCTIONALITY ============
+
+function showEmailModal(reportPath, reportName) {
+    currentReportPath = reportPath;
+    currentReportName = reportName;
+    
+    // Clear form
+    document.getElementById('recipient-email').value = '';
+    document.getElementById('email-message').value = '';
+    document.getElementById('email-error').classList.add('hidden');
+    document.getElementById('email-success').classList.add('hidden');
+    
+    // Show modal
+    emailModal.classList.remove('hidden');
+}
+
+function closeEmailModal() {
+    emailModal.classList.add('hidden');
+    currentReportPath = '';
+    currentReportName = '';
+}
+
+// Email form submission
+if (emailForm) {
+    emailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const recipientEmail = document.getElementById('recipient-email').value.trim();
+        const message = document.getElementById('email-message').value.trim();
+        const sendBtn = document.getElementById('send-email-btn');
+        const errorDiv = document.getElementById('email-error');
+        const successDiv = document.getElementById('email-success');
+        
+        // Hide previous messages
+        errorDiv.classList.add('hidden');
+        successDiv.classList.add('hidden');
+        
+        if (!recipientEmail) {
+            errorDiv.textContent = 'Please enter a recipient email address';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+        
+        // Show loading state
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+        
+        try {
+            const reportPath2 = currentReportPath.replace(/\\/g, '/');
+            
+            const response = await fetch('/send-report-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    report_path: reportPath2,
+                    report_name: currentReportName,
+                    recipient_email: recipientEmail,
+                    message: message
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                successDiv.textContent = `✓ Report sent successfully to ${recipientEmail}`;
+                successDiv.classList.remove('hidden');
+                
+                // Close modal after 2 seconds
+                setTimeout(() => {
+                    closeEmailModal();
+                }, 2000);
+            } else {
+                errorDiv.textContent = data.error || 'Failed to send email';
+                errorDiv.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Email send error:', error);
+            errorDiv.textContent = 'An error occurred while sending the email: ' + error.message;
+            errorDiv.classList.remove('hidden');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Email';
+        }
+    });
+}
+
+function downloadPdf(reportId) {
+    // Create a temporary link to trigger PDF download
+    const link = document.createElement('a');
+    link.href = `/download-report-pdf/${reportId}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }

@@ -1,0 +1,7 @@
+{
+  "SMTP_SERVER": "smtp.gmail.com",
+  "SMTP_PORT": 587,
+  "SMTP_EMAIL": "kumari492620@gmail.com",
+  "SMTP_APP_PASSWORD": "yutvfezcmvmiftnnil",
+  "SMTP_USE_STARTTLS": true
+}

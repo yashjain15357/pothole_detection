@@ -19,18 +19,28 @@ def init_database():
         
         # Create reports table
         c.execute('''CREATE TABLE IF NOT EXISTS reports
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                     report_type TEXT NOT NULL,
-                     filename TEXT,
-                     timestamp TEXT,
-                     pothole_count INTEGER,
-                     unique_potholes INTEGER,
-                     runtime_seconds REAL,
-                     total_frames INTEGER,
-                     fps INTEGER,
-                     frames_with_detections INTEGER,
-                     report_path TEXT,
-                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 report_type TEXT NOT NULL,
+                 filename TEXT,
+                 timestamp TEXT,
+                 pothole_count INTEGER,
+                 unique_potholes INTEGER,
+                 runtime_seconds REAL,
+                 total_frames INTEGER,
+                 fps INTEGER,
+                 frames_with_detections INTEGER,
+                 report_path TEXT,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+
+        # Table to store report files/blobs (text or generated PDFs)
+        c.execute('''CREATE TABLE IF NOT EXISTS report_files
+                (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 report_id INTEGER,
+                 filename TEXT,
+                 mime_type TEXT,
+                 content BLOB,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                 FOREIGN KEY(report_id) REFERENCES reports(id) ON DELETE CASCADE)''')
         
         conn.commit()
         conn.close()
@@ -82,10 +92,13 @@ def save_report_to_db(report_type, filename, report_data, report_path):
                       report_data.get('runtime_seconds'), report_path))
         
         conn.commit()
+        report_id = c.lastrowid
         conn.close()
-        print(f"✓ {report_type.capitalize()} report saved to database")
+        print(f"✓ {report_type.capitalize()} report saved to database (id={report_id})")
+        return report_id
     except Exception as e:
         print(f"Error saving report to database: {e}")
+        return None
 
 
 def get_reports_from_db():
@@ -181,6 +194,46 @@ def get_database_stats():
             'database_path': DATABASE,
             'error': str(e)
         }
+
+
+def save_report_file(report_id, filename, content_bytes, mime_type='text/plain'):
+    """Save a report file/blob associated with a report record."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''INSERT INTO report_files (report_id, filename, mime_type, content)
+                     VALUES (?, ?, ?, ?)''', (report_id, filename, mime_type, content_bytes))
+        conn.commit()
+        file_id = c.lastrowid
+        conn.close()
+        print(f"✓ Report file saved to DB (file_id={file_id}, report_id={report_id})")
+        return file_id
+    except Exception as e:
+        print(f"Error saving report file to DB: {e}")
+        return None
+
+
+def get_report_file(report_id):
+    """Retrieve the latest report file blob for a given report_id."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''SELECT id, filename, mime_type, content FROM report_files
+                     WHERE report_id = ? ORDER BY created_at DESC LIMIT 1''', (report_id,))
+        row = c.fetchone()
+        conn.close()
+        if not row:
+            return None
+        file_id, filename, mime_type, content = row
+        return {
+            'file_id': file_id,
+            'filename': filename,
+            'mime_type': mime_type,
+            'content': content
+        }
+    except Exception as e:
+        print(f"Error fetching report file from DB: {e}")
+        return None
 
 
 def delete_report_from_db(report_id):
