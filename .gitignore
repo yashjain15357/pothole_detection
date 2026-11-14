@@ -27,8 +27,8 @@ MANIFEST
 
 # Node / Frontend
 node_modules/
-frontend/dist/           # built on Render server; not committed
-backend/frontend/dist/   # generated during build; not committed
+# frontend/dist is included so deployment works without needing Node on Render/Railway
+
 
 # Virtual environments
 .venv/

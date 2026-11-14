@@ -10,7 +10,19 @@ except ImportError:
     HAS_CORS = False
 
 BASE_DIR = Path(__file__).resolve().parent
-REACT_DIST_DIR = BASE_DIR / 'frontend' / 'dist'
+
+def get_react_dist_dir():
+    candidates = [
+        BASE_DIR.parent / 'frontend' / 'dist',
+        BASE_DIR / 'frontend' / 'dist',
+        BASE_DIR / 'dist',
+    ]
+    for c in candidates:
+        if (c / 'index.html').exists():
+            return c
+    return candidates[0]
+
+REACT_DIST_DIR = get_react_dist_dir()
 
 SUPPORTED_IMAGES = ('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff')
 SUPPORTED_VIDEOS = ('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv')
