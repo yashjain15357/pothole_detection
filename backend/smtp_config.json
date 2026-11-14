@@ -1,0 +1,7 @@
+{
+  "SMTP_SERVER": "smtp.gmail.com",
+  "SMTP_PORT": 587,
+  "SMTP_EMAIL": "jain27ai034@satiengg.in",
+  "SMTP_APP_PASSWORD": "Yash@15357",
+  "SMTP_USE_STARTTLS": true
+}
