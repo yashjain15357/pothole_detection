@@ -1,0 +1,19 @@
+============================================================
+POTHOLE DETECTION REPORT WITH LOCATION
+============================================================
+Timestamp: 2026-05-27 10:37:12
+Image: 10_jpg.rf.34d3977ec50d6b0a9f5ac53cd9463b78.jpg
+Latitude: 23.519143
+Longitude: 77.811768
+Potholes Detected: 7
+============================================================
+
+Detection Details:
+------------------------------------------------------------
+Pothole 1: Confidence = 87.47%, Width = 263px, Height = 108px
+Pothole 2: Confidence = 85.35%, Width = 253px, Height = 105px
+Pothole 3: Confidence = 79.74%, Width = 113px, Height = 53px
+Pothole 4: Confidence = 79.70%, Width = 209px, Height = 74px
+Pothole 5: Confidence = 78.55%, Width = 117px, Height = 49px
+Pothole 6: Confidence = 60.08%, Width = 68px, Height = 90px
+Pothole 7: Confidence = 43.56%, Width = 214px, Height = 111px

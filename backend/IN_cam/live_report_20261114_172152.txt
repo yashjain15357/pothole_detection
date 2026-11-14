@@ -1,0 +1,66 @@
+LIVE CAMERA DETECTION - INSPECTION REPORT
+==================================================
+
+Timestamp: 11/14/2026, 5:21:52 PM
+Runtime:   82 seconds
+
+DETECTION SUMMARY
+--------------------------------------------------
+Total Detections: 0
+Unique Potholes:  9
+
+LOCATION
+--------------------------------------------------
+Latitude:  23.513964
+Longitude: 77.818223
+
+==================================================
+DETECTED POTHOLE INCIDENTS & COORDINATES
+==================================================
+
+Pothole #1:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:05 PM
+
+Pothole #2:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:05 PM
+
+Pothole #3:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:18 PM
+
+Pothole #4:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:20 PM
+
+Pothole #5:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:36 PM
+
+Pothole #6:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:40 PM
+
+Pothole #7:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:41 PM
+
+Pothole #8:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:50 PM
+
+Pothole #9:
+  Latitude:  23.51396438933398
+  Longitude: 77.81822257968174
+  Time:      5:21:51 PM
+
+==================================================

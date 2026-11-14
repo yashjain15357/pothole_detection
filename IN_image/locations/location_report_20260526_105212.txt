@@ -1,0 +1,14 @@
+============================================================
+POTHOLE DETECTION REPORT WITH LOCATION
+============================================================
+Timestamp: 2026-05-26 10:52:12
+Image: WhatsApp Image 2026-05-18 at 11.57.05 AM.jpeg
+Latitude: 23.518380
+Longitude: 77.812842
+Potholes Detected: 2
+============================================================
+
+Detection Details:
+------------------------------------------------------------
+Pothole 1: Confidence = 39.99%, Width = 452px, Height = 230px
+Pothole 2: Confidence = 23.47%, Width = 446px, Height = 366px

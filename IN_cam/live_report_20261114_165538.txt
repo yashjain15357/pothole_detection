@@ -1,0 +1,17 @@
+LIVE CAMERA DETECTION - INSPECTION REPORT
+==================================================
+
+Timestamp: 11/14/2026, 4:55:38 PM
+Runtime:   9 seconds
+
+DETECTION SUMMARY
+--------------------------------------------------
+Total Detections: 0
+Unique Potholes:  0
+
+LOCATION
+--------------------------------------------------
+Latitude:  23.514033
+Longitude: 77.818182
+
+==================================================

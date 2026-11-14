@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-05-27 11:35:19",
+  "filename": "04_jpg.rf.c55d66a5867faba7ae79b9e6e744899f.jpg",
+  "latitude": 23.520426194302164,
+  "longitude": 77.82501836857216,
+  "pothole_count": 1,
+  "detections": [
+    {
+      "confidence": "87.86%",
+      "height_px": "274",
+      "pothole_id": 1,
+      "width_px": "315",
+      "x1": 154,
+      "x2": 469,
+      "y1": 129,
+      "y2": 403
+    }
+  ]
+}

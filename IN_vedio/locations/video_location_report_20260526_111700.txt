@@ -1,0 +1,11 @@
+============================================================
+VIDEO DETECTION REPORT WITH LOCATION
+============================================================
+Timestamp: 2026-05-26 11:17:00
+Video: 20260315_110253 (online-video-cutter.com).mp4
+Latitude: 23.511265
+Longitude: 77.817467
+Total Frames: 619
+Total Potholes Detected: 0
+Unique Potholes: 0
+============================================================

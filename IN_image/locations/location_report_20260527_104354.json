@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-05-27 10:43:54",
+  "filename": "5_jpg.rf.fde13cb482ec7c9431b545ecf98d0c98.jpg",
+  "latitude": 23.52406993801399,
+  "longitude": 77.82524480272444,
+  "pothole_count": 4,
+  "detections": [
+    {
+      "confidence": "81.84%",
+      "height_px": "78",
+      "pothole_id": 1,
+      "width_px": "134",
+      "x1": 263,
+      "x2": 397,
+      "y1": 218,
+      "y2": 296
+    },
+    {
+      "confidence": "79.84%",
+      "height_px": "92",
+      "pothole_id": 2,
+      "width_px": "123",
+      "x1": 221,
+      "x2": 343,
+      "y1": 130,
+      "y2": 222
+    },
+    {
+      "confidence": "77.86%",
+      "height_px": "74",
+      "pothole_id": 3,
+      "width_px": "86",
+      "x1": 365,
+      "x2": 451,
+      "y1": 326,
+      "y2": 400
+    },
+    {
+      "confidence": "34.93%",
+      "height_px": "48",
+      "pothole_id": 4,
+      "width_px": "68",
+      "x1": 399,
+      "x2": 468,
+      "y1": 426,
+      "y2": 474
+    }
+  ]
+}

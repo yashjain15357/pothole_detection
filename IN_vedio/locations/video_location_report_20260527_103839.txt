@@ -1,0 +1,11 @@
+============================================================
+VIDEO DETECTION REPORT WITH LOCATION
+============================================================
+Timestamp: 2026-05-27 10:38:39
+Video: videoplayback (1).mp4
+Latitude: 23.514555
+Longitude: 77.811066
+Total Frames: 302
+Total Potholes Detected: 38
+Unique Potholes: 17
+============================================================

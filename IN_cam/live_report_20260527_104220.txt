@@ -1,0 +1,12 @@
+LIVE CAMERA DETECTION - SHORT REPORT
+==================================================
+
+Timestamp: 5/27/2026, 10:42:20 AM
+Runtime: 18 seconds
+
+DETECTION SUMMARY
+--------------------------------------------------
+Total Potholes Detected: 0
+Unique Potholes: 0
+
+==================================================
