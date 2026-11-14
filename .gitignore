@@ -27,6 +27,11 @@ MANIFEST
 
 # Node / Frontend
 node_modules/
+node_modules
+dist
+.vite
+.vercel
+*.log
 # frontend/dist is included so deployment works without needing Node on Render/Railway
 
 
