@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: pothole-detection
+    runtime: python
+    region: singapore          # closest to India; change to ohio/oregon if preferred
+    plan: free                 # free tier — upgrade to starter for always-on
+    rootDir: .
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r backend/requirements.txt
+      cd frontend && npm ci && npm run build
+      mkdir -p backend/frontend/dist
+      cp -r frontend/dist/. backend/frontend/dist/
+    startCommand: cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --max-requests 500 --max-requests-jitter 50
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true          # Render auto-generates a secure random value
+      - key: GOOGLE_CLIENT_ID
+        sync: false                  # you fill this in Render dashboard
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false
+      - key: SMTP_SERVER
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USE_STARTTLS
+        value: "true"
+      # Uncomment and set to your Render disk mount path to persist the SQLite DB
+      # - key: DATABASE_DIR
+      #   value: /var/data
+
+  # Optional: add a Render Disk for SQLite persistence
+  # disks:
+  #   - name: pothole-db
+  #     mountPath: /var/data
+  #     sizeGB: 1

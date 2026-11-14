@@ -26,23 +26,29 @@ APP_CONFIG = {
     'SECRET_KEY': os.getenv('SECRET_KEY', 'pothole_detection_secret_key_2024'),
     'SESSION_COOKIE_HTTPONLY': True,
     'SESSION_COOKIE_SAMESITE': 'Lax',
-    'SESSION_COOKIE_SECURE': os.getenv('RAILWAY_ENVIRONMENT') is not None,
+    # Enable secure cookies on any hosted environment (Render, Railway, etc.)
+    'SESSION_COOKIE_SECURE': os.getenv('RENDER') is not None or os.getenv('RAILWAY_ENVIRONMENT') is not None,
     'PERMANENT_SESSION_LIFETIME': timedelta(days=7),
 }
 
 
 def configure_cors(app):
     if HAS_CORS:
-        # Build allowed origins: always include localhost, plus Railway public URL if set
+        # Build allowed origins: always include localhost, plus hosted platform URLs
         allowed_origins = [
             'http://localhost:5173',
             'http://127.0.0.1:5173',
             'http://localhost:3000',
             'http://127.0.0.1:3000',
         ]
+        # Railway
         railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN')
         if railway_url:
             allowed_origins.append(f'https://{railway_url}')
+        # Render
+        render_url = os.getenv('RENDER_EXTERNAL_URL')
+        if render_url:
+            allowed_origins.append(render_url)
         # Also support custom CORS_ORIGINS env var (comma-separated)
         extra = os.getenv('CORS_ORIGINS', '')
         if extra:

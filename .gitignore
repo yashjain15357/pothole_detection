@@ -9,7 +9,10 @@ venv/
 ENV/
 build/
 develop-eggs/
-dist/
+# dist/ is intentionally NOT globally ignored — React build (frontend/dist) must be built on the server
+# Python dist artifacts:
+*.egg-info/
+*.egg
 downloads/
 eggs/
 .eggs/
@@ -19,10 +22,13 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
 .installed.cfg
-*.egg
 MANIFEST
+
+# Node / Frontend
+node_modules/
+frontend/dist/           # built on Render server; not committed
+backend/frontend/dist/   # generated during build; not committed
 
 # Virtual environments
 .venv/
