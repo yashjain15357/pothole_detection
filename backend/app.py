@@ -609,6 +609,7 @@ def start_camera_session():
 
 
 @app.route('/health')
+@app.route('/api/health')
 def health():
     """Health check endpoint"""
     yolo_model = get_model()

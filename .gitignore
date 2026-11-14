@@ -46,11 +46,8 @@ uploads/
 *.tmp
 *.bak
 
-# Model and data directories
-IN_image/
-IN_vedio/
-IN_cam/
-best.pt
+# Model weights - best.pt IS committed for deployment; other large weights excluded
+# best.pt  <-- intentionally included for Railway deployment
 *.weights
 *.h5
 *.pth

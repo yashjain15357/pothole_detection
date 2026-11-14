@@ -6,9 +6,17 @@ Handles all database operations for storing and retrieving reports
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+import os
 
 # Database configuration
-DATABASE = 'pothole_reports.db'
+# On Railway, set DATABASE_PATH env var to a persistent volume path (e.g. /data/pothole_reports.db)
+# Defaults to the current working directory for local development
+_db_dir = os.getenv('DATABASE_DIR', '')
+if _db_dir:
+    Path(_db_dir).mkdir(parents=True, exist_ok=True)
+    DATABASE = str(Path(_db_dir) / 'pothole_reports.db')
+else:
+    DATABASE = 'pothole_reports.db'
 
 
 def init_database():

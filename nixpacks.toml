@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["python311", "nodejs_20", "gcc", "libstdcxx5"]
+
+[phases.install]
+cmds = [
+  "cd frontend && npm ci",
+  "pip install -r backend/requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  "cd frontend && npm run build",
+  "mkdir -p backend/frontend && cp -r frontend/dist backend/frontend/dist"
+]
+
+[start]
+cmd = "cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --max-requests 500 --max-requests-jitter 50"
