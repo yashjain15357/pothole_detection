@@ -4,7 +4,7 @@ set -e
 
 echo "==> Installing Python dependencies..."
 pip install --upgrade pip
-pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt   # always use backend/requirements.txt (cross-platform)
 
 echo "==> Installing Node dependencies & building React frontend..."
 cd frontend
