@@ -29,7 +29,6 @@ from functools import wraps
 import mimetypes
 from urllib.parse import urlencode
 from authlib.integrations.flask_client import OAuth
-from jinja2 import TemplateNotFound
 
 from config import APP_CONFIG, REACT_DIST_DIR, SUPPORTED_IMAGES, SUPPORTED_VIDEOS, configure_cors
 from auth_utils import USERS, login_required, register_google_oauth
@@ -58,11 +57,7 @@ from process import process_image, process_video, update_report_with_location, g
 # Configure garbage collection for better memory usage
 gc.set_threshold(500, 5, 5)
 
-BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-
-# Use the root-level templates/static folders so the app works in both local and Render deployments.
-app = Flask(__name__, template_folder=str(PROJECT_ROOT / 'templates'), static_folder=str(PROJECT_ROOT / 'static'))
+app = Flask(__name__)
 for key, value in APP_CONFIG.items():
     app.config[key] = value
 
@@ -148,16 +143,7 @@ def home():
         return send_file(str(react_index))
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    try:
-        return render_template('login.html')
-    except TemplateNotFound:
-        return """
-        <html><head><title>Pothole Portal</title></head>
-        <body style='font-family:Arial,sans-serif;padding:40px'>
-            <h2>Pothole Reporting Portal</h2>
-            <p>The frontend build is not available yet. Please build the React app or deploy with the built dist files.</p>
-        </body></html>
-        """, 200
+    return render_template('login.html')
 
 
 @app.route('/dashboard')
@@ -166,16 +152,7 @@ def dashboard():
     react_index = REACT_DIST_DIR / 'index.html'
     if react_index.exists():
         return send_file(str(react_index))
-    try:
-        return render_template('index.html')
-    except TemplateNotFound:
-        return """
-        <html><head><title>Dashboard</title></head>
-        <body style='font-family:Arial,sans-serif;padding:40px'>
-            <h2>Dashboard</h2>
-            <p>Frontend build not found. Please run the frontend build before deployment.</p>
-        </body></html>
-        """, 200
+    return render_template('index.html')
 
 
 @app.route('/api/user-info', methods=['GET'])
