@@ -48,6 +48,7 @@ def register():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
+    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
     if request.method == 'GET':
         if 'user_id' in session:
             if request.is_json or request.headers.get('Accept') == 'application/json':
@@ -58,11 +59,11 @@ def login():
                     'username': session.get('username'),
                     'full_name': session.get('full_name', session.get('username'))
                 })
-            return redirect(url_for('dashboard'))
+            return redirect(frontend_url)
 
         if request.is_json or request.headers.get('Accept') == 'application/json':
             return jsonify({'success': False, 'authenticated': False}), 401
-        return redirect(url_for('login'))
+        return redirect(frontend_url)
 
     data = request.get_json() or {}
     username = data.get('username', '').strip()
@@ -98,9 +99,10 @@ def login():
 @bp.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
+    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
     if request.is_json or request.headers.get('Accept') == 'application/json' or request.method == 'POST':
         return jsonify({'success': True, 'message': 'Logged out successfully'})
-    return redirect(url_for('login'))
+    return redirect(frontend_url)
 
 
 @bp.route('/api/session', methods=['GET'])
@@ -126,30 +128,32 @@ def session_info():
 @bp.route('/login-google')
 def google_login():
     from app import google
+    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
 
     try:
         if google is None:
-            return redirect(url_for('login'))
+            return redirect(frontend_url)
 
-        redirect_uri = url_for('google_authorize', _external=True)
+        redirect_uri = url_for('auth.google_authorize', _external=True)
         return google.authorize_redirect(redirect_uri)
     except Exception:
-        return redirect(url_for('login'))
+        return redirect(frontend_url)
 
 
 @bp.route('/authorize')
 def google_authorize():
     from app import google
+    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
 
     try:
         if google is None:
-            return redirect(url_for('login'))
+            return redirect(frontend_url)
 
         token = google.authorize_access_token()
         user = token.get('userinfo')
 
         if not user or not user.get('email'):
-            return redirect(url_for('login'))
+            return redirect(frontend_url)
 
         session['user_id'] = user.get('email')
         session['username'] = user.get('name', 'User')
@@ -159,6 +163,6 @@ def google_authorize():
         session['auth_method'] = 'google'
         session.permanent = True
 
-        return redirect(url_for('dashboard'))
+        return redirect(frontend_url)
     except Exception:
-        return redirect(url_for('login'))
+        return redirect(frontend_url)

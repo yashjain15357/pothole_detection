@@ -11,7 +11,7 @@ os.environ['ULTRALYTICS_SKIP_UPDATE'] = 'true'
 # Optimization: Set memory optimization flags
 os.environ['PYTHONUNBUFFERED'] = '1'
 
-from flask import Flask, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, request, jsonify, send_file, send_from_directory, session, redirect, url_for
 from pathlib import Path
 import cv2
 import numpy as np
@@ -147,6 +147,19 @@ def home():
         'frontend_url': 'https://pothole-detection-hfy3.vercel.app',
         'health_check': '/api/health'
     }), 200
+
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    candidates = [
+        REACT_DIST_DIR / 'assets',
+        Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'assets',
+        Path(__file__).resolve().parent / 'frontend' / 'dist' / 'assets',
+    ]
+    for c in candidates:
+        if c.exists() and (c / filename).exists():
+            return send_from_directory(str(c), filename)
+    return jsonify({'error': f'Asset {filename} not found'}), 404
 
 
 @app.route('/dashboard')

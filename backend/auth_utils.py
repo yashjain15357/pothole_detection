@@ -213,6 +213,6 @@ def login_required(f):
                 ]
             ):
                 return jsonify({'success': False, 'error': 'Authentication required', 'authenticated': False}), 401
-            return redirect(url_for('login'))
+            return redirect(os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app'))
         return f(*args, **kwargs)
     return decorated_function
