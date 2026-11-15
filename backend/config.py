@@ -25,6 +25,10 @@ def get_react_dist_dir():
 
 REACT_DIST_DIR = get_react_dist_dir()
 
+# Supported media extensions
+SUPPORTED_IMAGES = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.jfif'}
+SUPPORTED_VIDEOS = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.mpeg', '.mpg', '.m4v'}
+
 APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 500 * 1024 * 1024,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'change_this_to_a_real_secret'),
