@@ -12,29 +12,6 @@ export const API_BASE_URL = (
         : DEFAULT_BACKEND_URL)
 );
 
-export function getStoredAuthToken() {
-  try {
-    return localStorage.getItem('auth_token') || '';
-  } catch (error) {
-    return '';
-  }
-}
-
-export function buildRequestOptions(options = {}) {
-  const headers = { ...(options.headers || {}) };
-  const token = getStoredAuthToken();
-
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  return {
-    ...options,
-    headers,
-    credentials: options.credentials ?? 'include',
-  };
-}
-
 export function apiUrl(endpoint) {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   if (!API_BASE_URL) return path;
@@ -42,8 +19,7 @@ export function apiUrl(endpoint) {
 }
 
 export async function safeFetchJson(url, options = {}) {
-  const requestOptions = buildRequestOptions(options);
-  const res = await fetch(url, requestOptions);
+  const res = await fetch(url, options);
   const text = await res.text();
   let data = {};
   if (text && text.trim()) {

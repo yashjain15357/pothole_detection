@@ -6,7 +6,6 @@ import ImageDetectionTab from './components/ImageDetectionTab';
 import VideoDetectionTab from './components/VideoDetectionTab';
 import LiveCameraTab from './components/LiveCameraTab';
 import ReportsTab from './components/ReportsTab';
-import { apiUrl, safeFetchJson } from './apiConfig';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -19,11 +18,11 @@ export default function App() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const { response, data } = await safeFetchJson(apiUrl('/api/session'), {
+        const response = await fetch('/api/session', {
           headers: { 'Accept': 'application/json' },
           credentials: 'include',
         });
-
+        const data = await response.json();
         if (response.ok && data.authenticated && data.user) {
           setUser({
             user_id: data.user.id,
@@ -55,16 +54,14 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await safeFetchJson(apiUrl('/logout'), {
+      await fetch('/logout', {
         method: 'POST',
         headers: { 'Accept': 'application/json' },
         credentials: 'include',
       });
-      localStorage.removeItem('auth_token');
       setUser(null);
       addToast('Logged out successfully', 'success');
     } catch (err) {
-      localStorage.removeItem('auth_token');
       setUser(null);
     }
   };
@@ -97,9 +94,6 @@ export default function App() {
         email: u.email || '',
         role: u.role || 'user',
       });
-      if (u.token) {
-        localStorage.setItem('auth_token', u.token);
-      }
       if (options?.message) {
         addToast(options.message, 'success');
       }
