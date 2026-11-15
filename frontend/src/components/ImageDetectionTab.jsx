@@ -13,7 +13,7 @@ import {
 import LeafletMapPicker from './LeafletMapPicker';
 import { apiUrl, safeFetchJson } from '../apiConfig';
 
-export default function ImageDetectionTab({ onToast }) {
+export default function ImageDetectionTab({ onToast, user }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -166,6 +166,28 @@ export default function ImageDetectionTab({ onToast }) {
       setSavingLocation(false);
     }
   };
+
+  if (!user) {
+    return (
+      <div style={{ padding: '32px 0' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          padding: '18px 20px',
+          borderRadius: '12px',
+          background: '#fef2f2',
+          border: '1px solid #fca5a5',
+          color: '#b91c1c',
+          fontWeight: 700,
+          fontSize: '1.1rem'
+        }}>
+          <AlertCircle size={28} />
+          Authentication required. Please log in to upload and analyze images.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
