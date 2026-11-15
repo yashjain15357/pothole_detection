@@ -111,19 +111,19 @@ export default function App() {
 
       <main className="main-content">
         {activeTab === 'dashboard' && (
-          <DashboardTab onViewReport={handleViewReportFromDashboard} user={user} />
+          <DashboardTab onViewReport={handleViewReportFromDashboard} />
         )}
 
         {activeTab === 'image' && (
-          <ImageDetectionTab onToast={addToast} user={user} />
+          <ImageDetectionTab onToast={addToast} />
         )}
 
         {activeTab === 'video' && (
-          <VideoDetectionTab onToast={addToast} user={user} />
+          <VideoDetectionTab onToast={addToast} />
         )}
 
         {activeTab === 'camera' && (
-          <LiveCameraTab onToast={addToast} user={user} />
+          <LiveCameraTab onToast={addToast} />
         )}
 
         {activeTab === 'reports' && (
@@ -131,7 +131,6 @@ export default function App() {
             selectedReportId={selectedReportId}
             onClearSelectedReportId={() => setSelectedReportId(null)}
             onToast={addToast}
-            user={user}
           />
         )}
       </main>
