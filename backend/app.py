@@ -63,6 +63,11 @@ for key, value in APP_CONFIG.items():
 
 configure_cors(app)
 
+try:
+    init_database()
+except Exception as e:
+    print(f'Error during startup database initialization: {e}')
+
 # Simple user database for normal login (in production, use proper database)
 # USERS is defined in auth_utils.py
 
