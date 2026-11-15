@@ -203,50 +203,75 @@ def reports_stats():
 def dashboard_analytics():
     """Get comprehensive analytics for dashboard"""
     try:
-        from database import sqlite3, DATABASE
-        conn = sqlite3.connect(DATABASE)
+        from database import get_db_connection, is_postgres_db
+        conn = get_db_connection()
         c = conn.cursor()
-        
-        # Total statistics
-        c.execute('SELECT COUNT(*) FROM reports')
-        total_reports = c.fetchone()[0]
-        
-        c.execute('SELECT SUM(pothole_count) FROM reports WHERE pothole_count IS NOT NULL')
-        total_potholes = c.fetchone()[0] or 0
-        
-        # By report type
-        c.execute('SELECT report_type, COUNT(*) as count FROM reports GROUP BY report_type')
-        by_type = {row[0]: row[1] for row in c.fetchall()}
-        
-        # Potholes by type
-        c.execute('''SELECT report_type, SUM(pothole_count) as total 
-                     FROM reports WHERE pothole_count IS NOT NULL GROUP BY report_type''')
-        potholes_by_type = {row[0]: row[1] or 0 for row in c.fetchall()}
-        
-        # Average potholes per report type
-        avg_potholes = {}
-        for report_type in ['image', 'video', 'camera']:
-            c.execute('''SELECT AVG(pothole_count) FROM reports 
-                         WHERE report_type = ? AND pothole_count IS NOT NULL''', (report_type,))
-            result = c.fetchone()[0]
-            avg_potholes[report_type] = round(result, 2) if result else 0
-        
-        # Time-based analysis (last 7 days)
-        from datetime import datetime, timedelta
-        c.execute('''SELECT DATE(created_at) as date, COUNT(*) as count 
-                     FROM reports WHERE created_at >= datetime('now', '-7 days')
-                     GROUP BY DATE(created_at) ORDER BY date''')
-        daily_reports = {row[0]: row[1] for row in c.fetchall()}
-        
-        # High pothole count reports (top 10)
-        c.execute('''SELECT id, report_type, filename, pothole_count, created_at 
-                     FROM reports WHERE pothole_count IS NOT NULL 
-                     ORDER BY pothole_count DESC LIMIT 10''')
-        top_reports = [{'id': row[0], 'type': row[1], 'name': row[2] or f'Report_{row[0]}', 
-                       'count': row[3], 'date': row[4]} for row in c.fetchall()]
-        
+
+        if is_postgres_db():
+            c.execute('SELECT COUNT(*) FROM reports')
+            total_reports = c.fetchone()[0]
+
+            c.execute('SELECT SUM(pothole_count) FROM reports WHERE pothole_count IS NOT NULL')
+            total_potholes = c.fetchone()[0] or 0
+
+            c.execute('SELECT report_type, COUNT(*) as count FROM reports GROUP BY report_type')
+            by_type = {row[0]: row[1] for row in c.fetchall()}
+
+            c.execute('''SELECT report_type, SUM(pothole_count) as total 
+                         FROM reports WHERE pothole_count IS NOT NULL GROUP BY report_type''')
+            potholes_by_type = {row[0]: row[1] or 0 for row in c.fetchall()}
+
+            avg_potholes = {}
+            for report_type in ['image', 'video', 'camera']:
+                c.execute('''SELECT AVG(pothole_count) FROM reports 
+                             WHERE report_type = %s AND pothole_count IS NOT NULL''', (report_type,))
+                result = c.fetchone()[0]
+                avg_potholes[report_type] = round(result, 2) if result else 0
+
+            c.execute('''SELECT DATE(created_at) as date, COUNT(*) as count 
+                         FROM reports WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+                         GROUP BY DATE(created_at) ORDER BY date''')
+            daily_reports = {row[0]: row[1] for row in c.fetchall()}
+
+            c.execute('''SELECT id, report_type, filename, pothole_count, created_at 
+                         FROM reports WHERE pothole_count IS NOT NULL 
+                         ORDER BY pothole_count DESC LIMIT 10''')
+            top_reports = [{'id': row[0], 'type': row[1], 'name': row[2] or f'Report_{row[0]}',
+                           'count': row[3], 'date': row[4]} for row in c.fetchall()]
+        else:
+            c.execute('SELECT COUNT(*) FROM reports')
+            total_reports = c.fetchone()[0]
+
+            c.execute('SELECT SUM(pothole_count) FROM reports WHERE pothole_count IS NOT NULL')
+            total_potholes = c.fetchone()[0] or 0
+
+            c.execute('SELECT report_type, COUNT(*) as count FROM reports GROUP BY report_type')
+            by_type = {row[0]: row[1] for row in c.fetchall()}
+
+            c.execute('''SELECT report_type, SUM(pothole_count) as total 
+                         FROM reports WHERE pothole_count IS NOT NULL GROUP BY report_type''')
+            potholes_by_type = {row[0]: row[1] or 0 for row in c.fetchall()}
+
+            avg_potholes = {}
+            for report_type in ['image', 'video', 'camera']:
+                c.execute('''SELECT AVG(pothole_count) FROM reports 
+                             WHERE report_type = ? AND pothole_count IS NOT NULL''', (report_type,))
+                result = c.fetchone()[0]
+                avg_potholes[report_type] = round(result, 2) if result else 0
+
+            c.execute('''SELECT DATE(created_at) as date, COUNT(*) as count 
+                         FROM reports WHERE created_at >= datetime('now', '-7 days')
+                         GROUP BY DATE(created_at) ORDER BY date''')
+            daily_reports = {row[0]: row[1] for row in c.fetchall()}
+
+            c.execute('''SELECT id, report_type, filename, pothole_count, created_at 
+                         FROM reports WHERE pothole_count IS NOT NULL 
+                         ORDER BY pothole_count DESC LIMIT 10''')
+            top_reports = [{'id': row[0], 'type': row[1], 'name': row[2] or f'Report_{row[0]}',
+                           'count': row[3], 'date': row[4]} for row in c.fetchall()]
+
         conn.close()
-        
+
         return jsonify({
             'success': True,
             'total_reports': total_reports,
@@ -267,57 +292,69 @@ def dashboard_analytics():
 def get_filtered_reports():
     """Get filtered reports based on query parameters"""
     try:
-        from database import sqlite3, DATABASE
-        
-        # Get filter parameters
-        report_type = request.args.get('type')  # 'image', 'video', 'camera', or None for all
+        from database import get_db_connection, is_postgres_db
+
+        report_type = request.args.get('type')
         min_potholes = request.args.get('min_potholes', type=int)
         max_potholes = request.args.get('max_potholes', type=int)
-        date_from = request.args.get('date_from')  # YYYY-MM-DD
-        date_to = request.args.get('date_to')      # YYYY-MM-DD
-        sort_by = request.args.get('sort_by', 'created_at')  # created_at, pothole_count
-        order = request.args.get('order', 'DESC')  # ASC or DESC
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        sort_by = request.args.get('sort_by', 'created_at')
+        order = request.args.get('order', 'DESC')
         limit = request.args.get('limit', 50, type=int)
-        
-        conn = sqlite3.connect(DATABASE)
+
+        if sort_by not in ['created_at', 'pothole_count']:
+            sort_by = 'created_at'
+
+        conn = get_db_connection()
         c = conn.cursor()
 
-
-        # Build query
         query = '''SELECT id, report_type, filename, pothole_count, unique_potholes, 
                           runtime_seconds, created_at, latitude, longitude, report_path FROM reports WHERE 1=1'''
         params = []
-        
+
         if report_type:
-            query += ' AND report_type = ?'
+            if is_postgres_db():
+                query += ' AND report_type = %s'
+            else:
+                query += ' AND report_type = ?'
             params.append(report_type)
-        
+
         if min_potholes is not None:
-            query += ' AND pothole_count >= ?'
+            if is_postgres_db():
+                query += ' AND pothole_count >= %s'
+            else:
+                query += ' AND pothole_count >= ?'
             params.append(min_potholes)
-        
+
         if max_potholes is not None:
-            query += ' AND pothole_count <= ?'
+            if is_postgres_db():
+                query += ' AND pothole_count <= %s'
+            else:
+                query += ' AND pothole_count <= ?'
             params.append(max_potholes)
-        
+
         if date_from:
-            query += ' AND DATE(created_at) >= ?'
+            if is_postgres_db():
+                query += ' AND DATE(created_at) >= %s'
+            else:
+                query += ' AND DATE(created_at) >= ?'
             params.append(date_from)
-        
+
         if date_to:
-            query += ' AND DATE(created_at) <= ?'
+            if is_postgres_db():
+                query += ' AND DATE(created_at) <= %s'
+            else:
+                query += ' AND DATE(created_at) <= ?'
             params.append(date_to)
-        
-        # Validate sort field
-        if sort_by not in ['created_at', 'pothole_count']:
-            sort_by = 'created_at'
-        
-        query += f' ORDER BY {sort_by} {order} LIMIT ?'
+
+        query += f' ORDER BY {sort_by} {order} LIMIT %s' if is_postgres_db() else f' ORDER BY {sort_by} {order} LIMIT ?'
         params.append(limit)
-        
+
         c.execute(query, params)
         rows = c.fetchall()
-        
+        conn.close()
+
         reports = []
         for row in rows:
             reports.append({
@@ -334,16 +371,14 @@ def get_filtered_reports():
                 'longitude': row[8],
                 'path': row[9]
             })
-        
-        conn.close()
-        
+
         return jsonify({
             'success': True,
-            'count': len(reports),
-            'reports': reports
+            'data': reports,
+            'count': len(reports)
         }), 200
     except Exception as e:
-        print(f"Error getting filtered reports: {e}")
+        print(f"Error filtering reports: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

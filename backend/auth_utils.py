@@ -7,7 +7,7 @@ from pathlib import Path
 from flask import jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database import DATABASE
+from database import DATABASE, get_db_connection, is_postgres_db
 
 USERS = {
     'admin': 'admin123',
@@ -16,41 +16,78 @@ USERS = {
 }
 
 
-def get_db_connection():
-    """Return a SQLite connection for auth-related database operations."""
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
+def row_to_dict(row, cursor):
+    """Convert sqlite/psycopg row objects to a dict."""
+    if row is None:
+        return None
+    if hasattr(row, 'keys'):
+        return dict(row)
+    columns = [col[0] for col in cursor.description]
+    return dict(zip(columns, row))
+
+
+def get_db_connection_for_auth():
+    """Return a DB connection; PostgreSQL-safe but compatible with SQLite local dev."""
+    conn = get_db_connection()
+    if is_postgres_db():
+        conn.autocommit = False
+    else:
+        conn.row_factory = sqlite3.Row
     return conn
 
 
 def ensure_user_table():
     """Create the users table if it does not exist and seed the demo users."""
-    conn = get_db_connection()
+    conn = get_db_connection_for_auth()
     c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT UNIQUE,
-            password_hash TEXT NOT NULL,
-            full_name TEXT,
-            role TEXT DEFAULT 'user',
-            is_active INTEGER DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    if is_postgres_db():
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id BIGSERIAL PRIMARY KEY,
+                username VARCHAR(150) NOT NULL UNIQUE,
+                email VARCHAR(255) UNIQUE,
+                password_hash TEXT NOT NULL,
+                full_name VARCHAR(255),
+                role VARCHAR(50) DEFAULT 'user',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+    else:
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT UNIQUE,
+                password_hash TEXT NOT NULL,
+                full_name TEXT,
+                role TEXT DEFAULT 'user',
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
     c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)')
     c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)')
     conn.commit()
 
     for username, password in USERS.items():
-        existing = c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+        if is_postgres_db():
+            existing = c.execute('SELECT id FROM users WHERE username = %s', (username,)).fetchone()
+        else:
+            existing = c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
         if not existing:
-            c.execute(
-                'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
-                (username, f'{username}@example.com', generate_password_hash(password), username.title(), 'admin' if username == 'admin' else 'user')
-            )
+            if is_postgres_db():
+                c.execute(
+                    'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (%s, %s, %s, %s, %s)',
+                    (username, f'{username}@example.com', generate_password_hash(password), username.title(), 'admin' if username == 'admin' else 'user')
+                )
+            else:
+                c.execute(
+                    'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
+                    (username, f'{username}@example.com', generate_password_hash(password), username.title(), 'admin' if username == 'admin' else 'user')
+                )
 
     conn.commit()
     conn.close()
@@ -72,23 +109,35 @@ def create_user(username, password, email=None, full_name=None, role='user'):
         return None, 'Username must be at least 3 characters long'
 
     ensure_user_table()
-    conn = get_db_connection()
+    conn = get_db_connection_for_auth()
     c = conn.cursor()
 
-    if c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
-        conn.close()
-        return None, 'Username already exists'
+    if is_postgres_db():
+        existing = c.execute('SELECT id FROM users WHERE username = %s', (username,)).fetchone()
+        if existing:
+            conn.close(); return None, 'Username already exists'
+        if email and c.execute('SELECT id FROM users WHERE email = %s', (email,)).fetchone():
+            conn.close(); return None, 'Email already registered'
 
-    if email and c.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-        conn.close()
-        return None, 'Email already registered'
+        hashed = generate_password_hash(password)
+        c.execute(
+            'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (%s, %s, %s, %s, %s)',
+            (username, email or None, hashed, full_name, role)
+        )
+        user_id = c.fetchone()[0] if c.description else None
+    else:
+        if c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
+            conn.close(); return None, 'Username already exists'
+        if email and c.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
+            conn.close(); return None, 'Email already registered'
 
-    hashed = generate_password_hash(password)
-    c.execute(
-        'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
-        (username, email or None, hashed, full_name, role)
-    )
-    user_id = c.lastrowid
+        hashed = generate_password_hash(password)
+        c.execute(
+            'INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
+            (username, email or None, hashed, full_name, role)
+        )
+        user_id = c.lastrowid
+
     conn.commit()
     conn.close()
 
@@ -106,10 +155,18 @@ def get_user_by_username(username):
     if not username:
         return None
     ensure_user_table()
-    conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (username.strip(),)).fetchone()
+    conn = get_db_connection_for_auth()
+    c = conn.cursor()
+    if is_postgres_db():
+        user = c.execute('SELECT * FROM users WHERE username = %s', (username.strip(),)).fetchone()
+    else:
+        user = c.execute('SELECT * FROM users WHERE username = ?', (username.strip(),)).fetchone()
     conn.close()
-    return dict(user) if user else None
+    if not user:
+        return None
+    if hasattr(user, 'keys'):
+        return dict(user)
+    return row_to_dict(user, c)
 
 
 def get_user_by_id(user_id):
@@ -117,10 +174,18 @@ def get_user_by_id(user_id):
     if not user_id:
         return None
     ensure_user_table()
-    conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn = get_db_connection_for_auth()
+    c = conn.cursor()
+    if is_postgres_db():
+        user = c.execute('SELECT * FROM users WHERE id = %s', (user_id,)).fetchone()
+    else:
+        user = c.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
-    return dict(user) if user else None
+    if not user:
+        return None
+    if hasattr(user, 'keys'):
+        return dict(user)
+    return row_to_dict(user, c)
 
 
 def verify_user_login(username, password):
@@ -130,14 +195,18 @@ def verify_user_login(username, password):
         return None, 'Username and password are required'
 
     ensure_user_table()
-    conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    conn = get_db_connection_for_auth()
+    c = conn.cursor()
+    if is_postgres_db():
+        user = c.execute('SELECT * FROM users WHERE username = %s', (username,)).fetchone()
+    else:
+        user = c.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
     conn.close()
 
     if not user:
         return None, 'Invalid username or password'
 
-    user_data = dict(user)
+    user_data = row_to_dict(user, c) if not hasattr(user, 'keys') else dict(user)
     if not check_password_hash(user_data['password_hash'], password):
         return None, 'Invalid username or password'
 
