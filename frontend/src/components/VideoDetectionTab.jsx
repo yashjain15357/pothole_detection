@@ -11,6 +11,7 @@ import {
   Activity
 } from 'lucide-react';
 import LeafletMapPicker from './LeafletMapPicker';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function VideoDetectionTab({ onToast }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -43,13 +44,11 @@ export default function VideoDetectionTab({ onToast }) {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch('/upload-video', {
+      const { response, data } = await safeFetchJson(apiUrl('/upload-video'), {
         method: 'POST',
         credentials: 'include',
         body: formData,
       });
-
-      const data = await response.json();
 
       if (response.ok && data.success !== false) {
         setResult(data);
@@ -67,7 +66,7 @@ export default function VideoDetectionTab({ onToast }) {
   const handleSaveLocation = async () => {
     setSavingLocation(true);
     try {
-      const res = await fetch('/save-video-location-with-report', {
+      const { response: res, data } = await safeFetchJson(apiUrl('/save-video-location-with-report'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -82,8 +81,6 @@ export default function VideoDetectionTab({ onToast }) {
           longitude: Number(longitude),
         }),
       });
-
-      const data = await res.json();
       if (res.ok && data.success) {
         setLocationSaved(true);
         onToast('Video report geotagged successfully!', 'success');

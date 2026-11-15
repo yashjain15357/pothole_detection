@@ -27,6 +27,33 @@ except ImportError:
 _model = None
 _model_loaded = False
 
+def find_model_file():
+    """Find the YOLO model file across possible directories."""
+    backend_dir = Path(__file__).resolve().parent.parent
+    root_dir = backend_dir.parent
+
+    candidates = [
+        # ONNX models first (memory optimized)
+        backend_dir / 'best.onnx',
+        root_dir / 'best.onnx',
+        Path('best.onnx'),
+        backend_dir / 'best(2).onnx',
+        root_dir / 'best(2).onnx',
+        Path('best(2).onnx'),
+        # PyTorch model
+        backend_dir / 'best.pt',
+        root_dir / 'best.pt',
+        Path('best.pt'),
+        backend_dir / 'best(2).pt',
+        root_dir / 'best(2).pt',
+        Path('best(2).pt'),
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return None
+
+
 def get_model():
     """Lazy load YOLO model on first use - reduces startup memory
     
@@ -41,24 +68,11 @@ def get_model():
     _model_loaded = True
     
     try:
-        # Try to load ONNX model first (smallest)
-        if os.path.exists('best.onnx'):
-            print("Loading YOLO model from best.onnx (ONNX - optimized)...")
-            _model = YOLO('best.onnx')
-            print("✅ ONNX model loaded successfully (50-100 MB)")
-        elif os.path.exists('best(2).onnx'):
-            print("Loading YOLO model from best(2).onnx (ONNX - optimized)...")
-            _model = YOLO('best(2).onnx')
-            print("✅ ONNX model loaded successfully (50-100 MB)")
-        # Fall back to PyTorch if ONNX not available
-        elif os.path.exists('best.pt'):
-            print("Loading YOLO model from best.pt (PyTorch)...")
-            _model = YOLO('best.pt')
-            print("⚠️  PyTorch model loaded (300 MB). Consider converting to ONNX!")
-        elif os.path.exists('best(2).pt'):
-            print("Loading YOLO model from best(2).pt (PyTorch)...")
-            _model = YOLO('best(2).pt')
-            print("⚠️  PyTorch model loaded (300 MB). Consider converting to ONNX!")
+        model_path = find_model_file()
+        if model_path:
+            print(f"Loading YOLO model from {model_path}...")
+            _model = YOLO(model_path)
+            print(f"✅ YOLO model loaded successfully from {model_path}")
         else:
             _model = None
             print("❌ Error: No model file found (best.pt, best.onnx, best(2).pt, or best(2).onnx)")

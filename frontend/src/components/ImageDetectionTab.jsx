@@ -11,6 +11,7 @@ import {
   Navigation
 } from 'lucide-react';
 import LeafletMapPicker from './LeafletMapPicker';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function ImageDetectionTab({ onToast }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -53,13 +54,11 @@ export default function ImageDetectionTab({ onToast }) {
     formData.append('longitude', longitude);
 
     try {
-      const response = await fetch('/upload-image', {
+      const { response, data } = await safeFetchJson(apiUrl('/upload-image'), {
         method: 'POST',
         credentials: 'include',
         body: formData,
       });
-
-      const data = await response.json();
 
       if (response.ok && data.success !== false) {
         // Ensure location is tracked
@@ -143,14 +142,12 @@ export default function ImageDetectionTab({ onToast }) {
         longitude: Number(longitude),
       };
 
-      const res = await fetch('/save-location-with-report', {
+      const { response: res, data } = await safeFetchJson(apiUrl('/save-location-with-report'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-
-      const data = await res.json();
       if (res.ok && data.success) {
         setLocationSaved(true);
         if (result && result.report) {

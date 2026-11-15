@@ -12,6 +12,7 @@ import {
   FileText,
   Navigation
 } from 'lucide-react';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function LiveCameraTab({ onToast, onViewReport }) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -86,11 +87,10 @@ export default function LiveCameraTab({ onToast, onViewReport }) {
 
     try {
       // 1. Initialize camera tracking session on server
-      const initRes = await fetch('/start-camera-session', {
+      const { response: initRes, data: initData } = await safeFetchJson(apiUrl('/start-camera-session'), {
         method: 'POST',
         credentials: 'include',
       });
-      const initData = await initRes.json();
       if (!initRes.ok) {
         throw new Error(initData.error || 'Failed to start camera session on server');
       }
@@ -160,14 +160,12 @@ export default function LiveCameraTab({ onToast, onViewReport }) {
       // Convert frame to base64 JPEG
       const base64Data = captureCanvas.toDataURL('image/jpeg', 0.75);
 
-      const response = await fetch('/detect-frame', {
+      const { response, data } = await safeFetchJson(apiUrl('/detect-frame'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ image: base64Data }),
       });
-
-      const data = await response.json();
 
       if (response.ok && data.success) {
         const pCount = data.pothole_count ?? data.potholes_count ?? 0;
@@ -287,14 +285,12 @@ export default function LiveCameraTab({ onToast, onViewReport }) {
           pothole_locations: detectedPotholeLocationsRef.current,
         };
 
-        const res = await fetch('/save-camera-report', {
+        const { response: res, data: reportData } = await safeFetchJson(apiUrl('/save-camera-report'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload),
         });
-
-        const reportData = await res.json();
         if (res.ok && reportData.success) {
           setSessionReport({
             id: reportData.report_id,
