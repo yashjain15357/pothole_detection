@@ -33,25 +33,34 @@ SMTP_EMAIL = os.getenv('SMTP_EMAIL', '').strip()
 SMTP_APP_PASSWORD = os.getenv('SMTP_APP_PASSWORD', '').strip()
 SMTP_USE_STARTTLS = os.getenv('SMTP_USE_STARTTLS', 'true').lower() in ('1', 'true', 'yes')
 
+is_hosted = (
+    os.getenv('RENDER') is not None
+    or os.getenv('RAILWAY_ENVIRONMENT') is not None
+    or os.getenv('FLASK_ENV') == 'production'
+)
+
 APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 500 * 1024 * 1024,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'pothole_detection_secret_key_2024'),
     'SESSION_COOKIE_HTTPONLY': True,
-    'SESSION_COOKIE_SAMESITE': 'Lax',
-    # Enable secure cookies on any hosted environment (Render, Railway, etc.)
-    'SESSION_COOKIE_SECURE': os.getenv('RENDER') is not None or os.getenv('RAILWAY_ENVIRONMENT') is not None,
+    # When deployed (frontend on Vercel, backend on Render), cross-site cookies require SameSite=None and Secure=True
+    'SESSION_COOKIE_SAMESITE': 'None' if is_hosted else 'Lax',
+    'SESSION_COOKIE_SECURE': True if is_hosted else False,
     'PERMANENT_SESSION_LIFETIME': timedelta(days=7),
 }
 
 
 def configure_cors(app):
     if HAS_CORS:
+        import re
         # Build allowed origins: always include localhost, plus hosted platform URLs
         allowed_origins = [
             'http://localhost:5173',
             'http://127.0.0.1:5173',
             'http://localhost:3000',
             'http://127.0.0.1:3000',
+            'https://pothole-detection-hfy3.vercel.app',
+            re.compile(r'^https:\/\/.*\.vercel\.app$'),
         ]
         # Railway
         railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN')

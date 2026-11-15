@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
-# Render build script for Fix My City — Pothole Detection
+# Render build script for Pothole Detection Backend API
 set -e
 
-echo "==> Installing Python dependencies..."
+echo "==> Upgrading pip..."
 pip install --upgrade pip
-pip install -r backend/requirements.txt   # always use backend/requirements.txt (cross-platform)
 
-echo "==> Installing Node dependencies & building React frontend..."
-cd frontend
-npm ci
-npm run build
-cd ..
+echo "==> Installing Python requirements..."
+pip install -r backend/requirements.txt
 
-echo "==> Copying React build into Flask static directory..."
-mkdir -p backend/frontend/dist
-cp -r frontend/dist/. backend/frontend/dist/
-
-echo "==> Build complete!"
+echo "==> Backend build completed successfully!"

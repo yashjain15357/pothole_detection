@@ -11,7 +11,7 @@ os.environ['ULTRALYTICS_SKIP_UPDATE'] = 'true'
 # Optimization: Set memory optimization flags
 os.environ['PYTHONUNBUFFERED'] = '1'
 
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, request, jsonify, send_file, session, redirect, url_for
 from pathlib import Path
 import cv2
 import numpy as np
@@ -141,18 +141,20 @@ def home():
     react_index = REACT_DIST_DIR / 'index.html'
     if react_index.exists():
         return send_file(str(react_index))
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return render_template('login.html')
+    return jsonify({
+        'status': 'online',
+        'service': 'Fix My City - Pothole Detection API',
+        'frontend_url': 'https://pothole-detection-hfy3.vercel.app',
+        'health_check': '/api/health'
+    }), 200
 
 
 @app.route('/dashboard')
-@login_required
 def dashboard():
     react_index = REACT_DIST_DIR / 'index.html'
     if react_index.exists():
         return send_file(str(react_index))
-    return render_template('index.html')
+    return redirect('https://pothole-detection-hfy3.vercel.app')
 
 
 @app.route('/api/user-info', methods=['GET'])
