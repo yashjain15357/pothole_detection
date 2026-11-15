@@ -74,9 +74,11 @@ def ensure_user_table():
 
     for username, password in USERS.items():
         if is_postgres_db():
-            existing = c.execute('SELECT id FROM users WHERE username = %s', (username,)).fetchone()
+            c.execute('SELECT id FROM users WHERE username = %s', (username,))
+            existing = c.fetchone()
         else:
-            existing = c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+            c.execute('SELECT id FROM users WHERE username = ?', (username,))
+            existing = c.fetchone()
         if not existing:
             if is_postgres_db():
                 c.execute(
@@ -113,11 +115,15 @@ def create_user(username, password, email=None, full_name=None, role='user'):
     c = conn.cursor()
 
     if is_postgres_db():
-        existing = c.execute('SELECT id FROM users WHERE username = %s', (username,)).fetchone()
+        c.execute('SELECT id FROM users WHERE username = %s', (username,))
+        existing = c.fetchone()
         if existing:
             conn.close(); return None, 'Username already exists'
-        if email and c.execute('SELECT id FROM users WHERE email = %s', (email,)).fetchone():
-            conn.close(); return None, 'Email already registered'
+        if email:
+            c.execute('SELECT id FROM users WHERE email = %s', (email,))
+            existing_email = c.fetchone()
+            if existing_email:
+                conn.close(); return None, 'Email already registered'
 
         hashed = generate_password_hash(password)
         c.execute(
@@ -126,10 +132,13 @@ def create_user(username, password, email=None, full_name=None, role='user'):
         )
         user_id = c.fetchone()[0] if c.description else None
     else:
-        if c.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
+        c.execute('SELECT id FROM users WHERE username = ?', (username,))
+        if c.fetchone():
             conn.close(); return None, 'Username already exists'
-        if email and c.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-            conn.close(); return None, 'Email already registered'
+        if email:
+            c.execute('SELECT id FROM users WHERE email = ?', (email,))
+            if c.fetchone():
+                conn.close(); return None, 'Email already registered'
 
         hashed = generate_password_hash(password)
         c.execute(
@@ -158,9 +167,11 @@ def get_user_by_username(username):
     conn = get_db_connection_for_auth()
     c = conn.cursor()
     if is_postgres_db():
-        user = c.execute('SELECT * FROM users WHERE username = %s', (username.strip(),)).fetchone()
+        c.execute('SELECT * FROM users WHERE username = %s', (username.strip(),))
+        user = c.fetchone()
     else:
-        user = c.execute('SELECT * FROM users WHERE username = ?', (username.strip(),)).fetchone()
+        c.execute('SELECT * FROM users WHERE username = ?', (username.strip(),))
+        user = c.fetchone()
     conn.close()
     if not user:
         return None
@@ -177,9 +188,11 @@ def get_user_by_id(user_id):
     conn = get_db_connection_for_auth()
     c = conn.cursor()
     if is_postgres_db():
-        user = c.execute('SELECT * FROM users WHERE id = %s', (user_id,)).fetchone()
+        c.execute('SELECT * FROM users WHERE id = %s', (user_id,))
+        user = c.fetchone()
     else:
-        user = c.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        c.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+        user = c.fetchone()
     conn.close()
     if not user:
         return None
@@ -198,9 +211,11 @@ def verify_user_login(username, password):
     conn = get_db_connection_for_auth()
     c = conn.cursor()
     if is_postgres_db():
-        user = c.execute('SELECT * FROM users WHERE username = %s', (username,)).fetchone()
+        c.execute('SELECT * FROM users WHERE username = %s', (username,))
+        user = c.fetchone()
     else:
-        user = c.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        c.execute('SELECT * FROM users WHERE username = ?', (username,))
+        user = c.fetchone()
     conn.close()
 
     if not user:
