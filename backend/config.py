@@ -64,3 +64,9 @@ def configure_cors(app):
             methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"]
         )
+
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_EMAIL = os.getenv('SMTP_EMAIL', '').strip()
+SMTP_APP_PASSWORD = os.getenv('SMTP_APP_PASSWORD', '').strip()
+SMTP_USE_STARTTLS = os.getenv('SMTP_USE_STARTTLS', 'true').lower() in ('1', 'true', 'yes')
