@@ -33,21 +33,32 @@ APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 500 * 1024 * 1024,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'change_this_to_a_real_secret'),
     'SESSION_COOKIE_HTTPONLY': True,
-    'SESSION_COOKIE_SAMESITE': 'None',
-    'SESSION_COOKIE_SECURE': True,
+    'SESSION_COOKIE_NAME': os.getenv('SESSION_COOKIE_NAME', 'pothole_session'),
+    'SESSION_COOKIE_SAMESITE': os.getenv('SESSION_COOKIE_SAMESITE', 'None').strip() or 'None',
+    'SESSION_COOKIE_SECURE': os.getenv('SESSION_COOKIE_SECURE', 'true').strip().lower() in ('1', 'true', 'yes', 'on'),
     'PERMANENT_SESSION_LIFETIME': timedelta(days=7),
 }
 
+# Enforce secure cross-site cookies on production deployments.
+if APP_CONFIG['SESSION_COOKIE_SAMESITE'].lower() == 'none':
+    APP_CONFIG['SESSION_COOKIE_SECURE'] = True
+
+
 def configure_cors(app):
     if HAS_CORS:
+        frontend_url = os.getenv('FRONTEND_URL', '').strip()
         allowed_origins = [
             'http://localhost:5173',
             'http://127.0.0.1:5173',
             'http://localhost:3000',
             'http://127.0.0.1:3000',
+            'https://pothole-detection-hfy3.vercel.app',
             'https://pothole-detection-hfy3-git-main-jainy9089-4487s-projects.vercel.app',
             re.compile(r'^https:\/\/.*\.vercel\.app$'),
         ]
+
+        if frontend_url:
+            allowed_origins.append(frontend_url)
 
         render_url = os.getenv('RENDER_EXTERNAL_URL')
         if render_url:
@@ -62,7 +73,9 @@ def configure_cors(app):
             supports_credentials=True,
             origins=allowed_origins,
             methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"]
+            allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+            expose_headers=["Content-Type", "Authorization"],
+            intercept_exceptions=False,
         )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
