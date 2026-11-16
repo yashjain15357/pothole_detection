@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: pothole-detection-backend
+    name: pothole-detection
     runtime: python
     region: singapore          # closest to India; can change if needed
     plan: free
     rootDir: .
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: ./build.sh
     startCommand: cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     healthCheckPath: /api/health
     envVars:

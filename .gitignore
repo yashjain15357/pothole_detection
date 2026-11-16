@@ -27,12 +27,9 @@ MANIFEST
 
 # Node / Frontend
 node_modules/
-node_modules
-dist
 .vite
-.vercel
-*.log
-# frontend/dist is included so deployment works without needing Node on Render/Railway
+# frontend/dist and backend/frontend/dist are intentionally committed
+# so the pre-built React frontend is served directly by Flask on Render
 
 
 # Virtual environments

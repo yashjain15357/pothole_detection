@@ -1,20 +1,11 @@
-// Centralized API configuration
-// When deployed on Vercel, requests point directly to your Render backend.
-// When running locally on localhost/127.0.0.1, it uses relative path so Vite proxy works.
+// Centralized API configuration for Render deployment
+// Frontend and backend are served from the same domain on Render,
+// so all API requests use relative paths.
 
-const DEFAULT_BACKEND_URL = 'https://pothole-detection-1-2csi.onrender.com';
-
-export const API_BASE_URL = (
-  typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL !== undefined
-    ? import.meta.env.VITE_API_URL
-    : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? ''
-        : DEFAULT_BACKEND_URL)
-);
+export const API_BASE_URL = '';
 
 export function apiUrl(endpoint) {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (!API_BASE_URL) return path;
   return `${API_BASE_URL}${path}`;
 }
 

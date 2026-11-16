@@ -171,6 +171,18 @@ def dashboard():
     return redirect('/')
 
 
+@app.route('/<path:filename>')
+def serve_static_or_spa(filename):
+    """Serve files from dist (favicon, icons, etc.) or fallback to index.html for SPA client routes."""
+    file_path = REACT_DIST_DIR / filename
+    if file_path.exists() and file_path.is_file():
+        return send_file(str(file_path))
+    react_index = REACT_DIST_DIR / 'index.html'
+    if react_index.exists():
+        return send_file(str(react_index))
+    return jsonify({'error': f'{filename} not found'}), 404
+
+
 @app.route('/api/user-info', methods=['GET'])
 @login_required
 def user_info():
