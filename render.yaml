@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: .
     buildCommand: ./build.sh
-    startCommand: cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: cd backend && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
