@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pothole-detection
+    name: pothole-detection-backend
     runtime: python
     region: singapore          # closest to India; can change if needed
     plan: free
@@ -29,3 +29,18 @@ services:
         value: "587"
       - key: SMTP_USE_STARTTLS
         value: "true"
+
+  - type: static
+    name: pothole-detection-frontend
+    region: singapore
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://pothole-detection-1-2csi.onrender.com

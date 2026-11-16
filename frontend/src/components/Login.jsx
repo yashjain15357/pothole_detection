@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldAlert, LogIn, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Signup from './Signup';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function Login({ onLoginSuccess }) {
   const [showSignup, setShowSignup] = useState(false);
@@ -11,12 +12,15 @@ export default function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const requestLogin = async (payload) => {
-    const baseUrls = ['', 'http://127.0.0.1:5000', 'http://127.0.0.1:5001'];
+    const urls = [apiUrl('/login')];
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      urls.push('http://127.0.0.1:5000/login');
+    }
     let lastError = null;
 
-    for (const baseUrl of baseUrls) {
+    for (const url of urls) {
       try {
-        const response = await fetch(`${baseUrl}/login`, {
+        const { response, data } = await safeFetchJson(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -26,7 +30,6 @@ export default function Login({ onLoginSuccess }) {
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json().catch(() => ({}));
         if (response.status !== 404) {
           return { response, data };
         }
@@ -234,7 +237,7 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         <a
-          href="/login-google"
+          href={apiUrl('/login-google')}
           className="btn btn-secondary"
           style={{
             width: '100%',

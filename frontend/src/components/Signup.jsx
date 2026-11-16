@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserPlus, Mail, Lock, Eye, EyeOff, User, AlertCircle, ArrowLeft } from 'lucide-react';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function Signup({ onSignupSuccess, onBackToLogin }) {
   const [fullName, setFullName] = useState('');
@@ -13,12 +14,15 @@ export default function Signup({ onSignupSuccess, onBackToLogin }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const requestSignup = async (payload) => {
-    const baseUrls = ['', 'http://127.0.0.1:5000', 'http://127.0.0.1:5001'];
+    const urls = [apiUrl('/register')];
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      urls.push('http://127.0.0.1:5000/register');
+    }
     let lastError = null;
 
-    for (const baseUrl of baseUrls) {
+    for (const url of urls) {
       try {
-        const response = await fetch(`${baseUrl}/register`, {
+        const { response, data } = await safeFetchJson(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -28,7 +32,6 @@ export default function Signup({ onSignupSuccess, onBackToLogin }) {
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json().catch(() => ({}));
         if (response.status !== 404) {
           return { response, data };
         }

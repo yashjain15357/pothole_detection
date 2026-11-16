@@ -11,6 +11,7 @@ import {
   Clock
 } from 'lucide-react';
 import { Chart, registerables } from 'chart.js';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 Chart.register(...registerables);
 
@@ -28,11 +29,10 @@ export default function DashboardTab({ onViewReport }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/dashboard/analytics', {
+      const { response: res, data } = await safeFetchJson(apiUrl('/api/dashboard/analytics'), {
         headers: { 'Accept': 'application/json' },
         credentials: 'include'
       });
-      const data = await res.json();
       if (res.ok && data.success) {
         setAnalytics(data);
       } else {

@@ -14,6 +14,7 @@ import {
   Settings,
   CheckCircle2
 } from 'lucide-react';
+import { apiUrl, safeFetchJson } from '../apiConfig';
 
 export default function ReportsTab({ selectedReportId, onClearSelectedReportId, onToast }) {
   const [reports, setReports] = useState([]);
@@ -40,8 +41,7 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
 
   const fetchSmtpStatus = async () => {
     try {
-      const res = await fetch('/api/smtp-config', { credentials: 'include' });
-      const data = await res.json();
+      const { response: res, data } = await safeFetchJson(apiUrl('/api/smtp-config'), { credentials: 'include' });
       if (res.ok && data.success) {
         setSmtpStatus(data);
         if (data.smtp_email) setSmtpEmailInput(data.smtp_email);
@@ -59,7 +59,7 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
     }
     setSavingSmtp(true);
     try {
-      const res = await fetch('/api/smtp-config', {
+      const { response: res, data } = await safeFetchJson(apiUrl('/api/smtp-config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -68,7 +68,6 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
           smtp_app_password: smtpPassInput,
         }),
       });
-      const data = await res.json();
       if (res.ok && data.success) {
         onToast('SMTP credentials saved successfully!', 'success');
         setSmtpStatus({ configured: true, smtp_email: smtpEmailInput });
@@ -98,7 +97,7 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
 
     setSendingEmail(true);
     try {
-      const res = await fetch('/send-report-email', {
+      const { response: res, data } = await safeFetchJson(apiUrl('/send-report-email'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -111,7 +110,6 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
         }),
       });
 
-      const data = await res.json();
       if (res.ok && data.success) {
         onToast(`Report emailed to ${recipientEmail}!`, 'success');
         setEmailModalReport(null);
@@ -135,11 +133,10 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
       if (minPotholes) params.append('min_potholes', minPotholes);
 
       const url = `/api/dashboard/reports-filtered?${params.toString()}`;
-      const res = await fetch(url, {
+      const { response: res, data } = await safeFetchJson(apiUrl(url), {
         headers: { 'Accept': 'application/json' },
         credentials: 'include',
       });
-      const data = await res.json();
       if (res.ok && data.success) {
         setReports(data.reports || []);
       }
@@ -168,10 +165,9 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
     setViewingReportContent('');
 
     try {
-      const res = await fetch(`/report-by-id/${rep.id}`, {
+      const { response: res, data } = await safeFetchJson(apiUrl(`/report-by-id/${rep.id}`), {
         credentials: 'include'
       });
-      const data = await res.json();
       if (res.ok && data.success) {
         setViewingReportContent(data.content || 'No content found.');
       } else {
@@ -329,7 +325,7 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
                         </button>
 
                         <a
-                          href={`/download-report-pdf/${r.id}`}
+                          href={apiUrl(`/download-report-pdf/${r.id}`)}
                           download
                           className="btn btn-secondary"
                           title="Download PDF"
@@ -397,7 +393,7 @@ export default function ReportsTab({ selectedReportId, onClearSelectedReportId, 
 
             <div className="modal-footer">
               <a
-                href={`/download-report-pdf/${viewingReport.id}`}
+                href={apiUrl(`/download-report-pdf/${viewingReport.id}`)}
                 download
                 className="btn btn-primary"
                 style={{ textDecoration: 'none' }}

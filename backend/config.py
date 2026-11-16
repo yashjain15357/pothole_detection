@@ -38,20 +38,23 @@ APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 500 * 1024 * 1024,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'pothole_detection_secret_key_2024'),
     'SESSION_COOKIE_HTTPONLY': True,
-    'SESSION_COOKIE_SAMESITE': 'Lax',
-    'SESSION_COOKIE_SECURE': os.getenv('RENDER') is not None,
+    # Supports cross-subdomain cookies on Render (e.g. frontend.onrender.com -> backend.onrender.com)
+    'SESSION_COOKIE_SAMESITE': 'None' if os.getenv('RENDER') else 'Lax',
+    'SESSION_COOKIE_SECURE': True if os.getenv('RENDER') else False,
     'PERMANENT_SESSION_LIFETIME': timedelta(days=7),
 }
 
 
 def configure_cors(app):
-    """Configure CORS — only needed for local dev (Vite dev server on :5173)."""
+    """Configure CORS for local dev and Render deployments."""
     if HAS_CORS:
+        import re
         allowed_origins = [
             'http://localhost:5173',
             'http://127.0.0.1:5173',
             'http://localhost:3000',
             'http://127.0.0.1:3000',
+            re.compile(r'^https:\/\/.*\.onrender\.com$'),
         ]
         extra = os.getenv('CORS_ORIGINS', '')
         if extra:
