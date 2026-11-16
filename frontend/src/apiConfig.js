@@ -1,8 +1,8 @@
 // Centralized API configuration for Render deployment
-// Supports both:
-// 1. Static Site on Render -> routes to Render backend API
-// 2. Full-stack deployment (Flask serves React) -> uses relative paths
-// 3. Localhost dev -> uses relative paths with Vite proxy
+// Supports:
+// 1. Separate Render Static Site (https://pothole-detection-2-sc8w.onrender.com)
+// 2. Full-stack deployment on Render backend (https://pothole-detection-1-2csi.onrender.com)
+// 3. Local development (localhost / 127.0.0.1 with Vite proxy)
 
 const DEFAULT_BACKEND_URL = 'https://pothole-detection-1-2csi.onrender.com';
 
@@ -31,7 +31,22 @@ export function apiUrl(endpoint) {
 }
 
 export async function safeFetchJson(url, options = {}) {
-  const res = await fetch(url, options);
+  const headers = { ...(options.headers || {}) };
+
+  // Automatically attach auth token if saved in localStorage
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('auth_token');
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(url, {
+    credentials: 'include',
+    ...options,
+    headers,
+  });
+
   const text = await res.text();
   let data = {};
   if (text && text.trim()) {

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from flask import jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from database import DATABASE, get_db_connection, is_postgres_db
 
@@ -232,9 +233,58 @@ def verify_user_login(username, password):
     return user_data, None
 
 
+def get_auth_serializer():
+    secret_key = os.getenv('SECRET_KEY', 'pothole_detection_secret_key_2024')
+    return URLSafeTimedSerializer(secret_key, salt='pothole-auth-token')
+
+
+def generate_auth_token(user_id, username=None):
+    """Generate a signed auth token for cross-domain REST authentication."""
+    s = get_auth_serializer()
+    return s.dumps({'user_id': user_id, 'username': username})
+
+
+def verify_auth_token(token, max_age=86400 * 30):
+    """Verify and decode a signed auth token (valid for 30 days by default)."""
+    if not token:
+        return None
+    s = get_auth_serializer()
+    try:
+        return s.loads(token, max_age=max_age)
+    except (BadSignature, SignatureExpired, Exception):
+        return None
+
+
+def get_authenticated_user_id():
+    """Extract authenticated user_id from session cookie or Authorization header."""
+    # 1. Check Flask session cookie
+    if 'user_id' in session and session['user_id']:
+        return session['user_id']
+
+    # 2. Check Authorization: Bearer <token> or X-Auth-Token header
+    auth_header = request.headers.get('Authorization', '')
+    token = None
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:].strip()
+    elif request.headers.get('X-Auth-Token'):
+        token = request.headers.get('X-Auth-Token').strip()
+    elif request.args.get('token'):
+        token = request.args.get('token').strip()
+
+    if token:
+        payload = verify_auth_token(token)
+        if payload and 'user_id' in payload:
+            session['user_id'] = payload['user_id']
+            if payload.get('username'):
+                session['username'] = payload['username']
+            return payload['user_id']
+
+    return None
+
+
 def get_session_user():
-    """Return the current authenticated user from Flask session."""
-    user_id = session.get('user_id')
+    """Return the current authenticated user from Flask session or Authorization token."""
+    user_id = get_authenticated_user_id()
     if not user_id:
         return None
     return get_user_by_id(user_id)
@@ -283,7 +333,8 @@ def register_google_oauth(oauth):
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
+        user_id = get_authenticated_user_id()
+        if not user_id:
             if (
                 request.path.startswith('/api/') or
                 request.is_json or

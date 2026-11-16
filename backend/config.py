@@ -34,13 +34,15 @@ SMTP_EMAIL = os.getenv('SMTP_EMAIL', '').strip()
 SMTP_APP_PASSWORD = os.getenv('SMTP_APP_PASSWORD', '').strip()
 SMTP_USE_STARTTLS = os.getenv('SMTP_USE_STARTTLS', 'true').lower() in ('1', 'true', 'yes')
 
+is_render_or_prod = os.getenv('RENDER') is not None or os.getenv('PORT') is not None
+
 APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 500 * 1024 * 1024,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'pothole_detection_secret_key_2024'),
     'SESSION_COOKIE_HTTPONLY': True,
     # Supports cross-subdomain cookies on Render (e.g. frontend.onrender.com -> backend.onrender.com)
-    'SESSION_COOKIE_SAMESITE': 'None' if os.getenv('RENDER') else 'Lax',
-    'SESSION_COOKIE_SECURE': True if os.getenv('RENDER') else False,
+    'SESSION_COOKIE_SAMESITE': 'None' if is_render_or_prod else 'Lax',
+    'SESSION_COOKIE_SECURE': True if is_render_or_prod else False,
     'PERMANENT_SESSION_LIFETIME': timedelta(days=7),
 }
 
@@ -54,6 +56,7 @@ def configure_cors(app):
             'http://127.0.0.1:5173',
             'http://localhost:3000',
             'http://127.0.0.1:3000',
+            'https://pothole-detection-2-sc8w.onrender.com',
             re.compile(r'^https:\/\/.*\.onrender\.com$'),
         ]
         extra = os.getenv('CORS_ORIGINS', '')
@@ -63,4 +66,7 @@ def configure_cors(app):
             app,
             supports_credentials=True,
             origins=allowed_origins,
+            allow_headers=['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Auth-Token'],
+            expose_headers=['Content-Type', 'Authorization'],
+            methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         )

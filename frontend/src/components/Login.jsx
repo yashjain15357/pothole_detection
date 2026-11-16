@@ -50,6 +50,9 @@ export default function Login({ onLoginSuccess }) {
       const { response, data } = await requestLogin({ username, password });
 
       if (response.ok && data.success) {
+        if (data.token && typeof window !== 'undefined') {
+          localStorage.setItem('auth_token', data.token);
+        }
         const user = data.user || { username, user_id: username };
         onLoginSuccess(user, { message: 'Signed in successfully.' });
       } else {

@@ -6,6 +6,7 @@ from auth_utils import (
     create_user,
     get_session_user,
     verify_user_login,
+    generate_auth_token,
 )
 
 bp = Blueprint('auth', __name__)
@@ -34,9 +35,12 @@ def register():
     session['auth_method'] = 'local'
     session.permanent = True
 
+    token = generate_auth_token(user['id'], user['username'])
+
     return jsonify({
         'success': True,
         'message': 'Registration successful',
+        'token': token,
         'user': {
             'id': user['id'],
             'username': user['username'],
@@ -84,9 +88,12 @@ def login():
     session['auth_method'] = 'local'
     session.permanent = True
 
+    token = generate_auth_token(user['id'], user['username'])
+
     return jsonify({
         'success': True,
         'message': 'Login successful',
+        'token': token,
         'user': {
             'id': user['id'],
             'username': user['username'],
@@ -111,7 +118,7 @@ def session_info():
     """Return current session and user information."""
     user = get_session_user()
     if not user:
-        return jsonify({'success': False, 'authenticated': False}), 401
+        return jsonify({'success': True, 'authenticated': False}), 200
 
     return jsonify({
         'success': True,

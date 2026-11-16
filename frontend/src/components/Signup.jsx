@@ -63,6 +63,9 @@ export default function Signup({ onSignupSuccess, onBackToLogin }) {
       });
 
       if (response.ok && data.success) {
+        if (data.token && typeof window !== 'undefined') {
+          localStorage.setItem('auth_token', data.token);
+        }
         const user = data.user || { username, full_name: fullName, email };
         onSignupSuccess?.(user, true);
         return;

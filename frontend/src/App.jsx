@@ -59,10 +59,14 @@ export default function App() {
         headers: { 'Accept': 'application/json' },
         credentials: 'include',
       });
+    } catch (err) {
+      // ignore
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+      }
       setUser(null);
       addToast('Logged out successfully', 'success');
-    } catch (err) {
-      setUser(null);
     }
   };
 
