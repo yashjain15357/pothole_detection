@@ -149,21 +149,17 @@ def home():
     return jsonify({
         'status': 'online',
         'service': 'Fix My City - Pothole Detection API',
-        'frontend_url': 'https://pothole-detection-hfy3.vercel.app',
+        'note': 'Frontend not built yet. Run: cd frontend && npm run build',
         'health_check': '/api/health'
     }), 200
 
 
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
-    candidates = [
-        REACT_DIST_DIR / 'assets',
-        Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'assets',
-        Path(__file__).resolve().parent / 'frontend' / 'dist' / 'assets',
-    ]
-    for c in candidates:
-        if c.exists() and (c / filename).exists():
-            return send_from_directory(str(c), filename)
+    """Serve React build static assets (JS, CSS, images)."""
+    assets_dir = REACT_DIST_DIR / 'assets'
+    if assets_dir.exists() and (assets_dir / filename).exists():
+        return send_from_directory(str(assets_dir), filename)
     return jsonify({'error': f'Asset {filename} not found'}), 404
 
 
@@ -172,7 +168,7 @@ def dashboard():
     react_index = REACT_DIST_DIR / 'index.html'
     if react_index.exists():
         return send_file(str(react_index))
-    return redirect('https://pothole-detection-hfy3.vercel.app')
+    return redirect('/')
 
 
 @app.route('/api/user-info', methods=['GET'])

@@ -49,7 +49,7 @@ def register():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
+    frontend_url = os.getenv('FRONTEND_URL', '/')
     if request.method == 'GET':
         if 'user_id' in session:
             if request.is_json or request.headers.get('Accept') == 'application/json':
@@ -100,7 +100,7 @@ def login():
 @bp.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
-    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
+    frontend_url = os.getenv('FRONTEND_URL', '/')
     if request.is_json or request.headers.get('Accept') == 'application/json' or request.method == 'POST':
         return jsonify({'success': True, 'message': 'Logged out successfully'})
     return redirect(frontend_url)
@@ -129,7 +129,7 @@ def session_info():
 @bp.route('/login-google')
 def google_login():
     from app import google
-    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
+    frontend_url = os.getenv('FRONTEND_URL', '/')
 
     try:
         if google is None:
@@ -144,7 +144,7 @@ def google_login():
 @bp.route('/authorize')
 def google_authorize():
     from app import google
-    frontend_url = os.getenv('FRONTEND_URL', 'https://pothole-detection-hfy3.vercel.app')
+    frontend_url = os.getenv('FRONTEND_URL', '/')
 
     try:
         if google is None:
